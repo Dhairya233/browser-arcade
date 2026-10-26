@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scotland Yard</title>
+<script src="../../vendor/peerjs.min.js"></script>
+<link rel="stylesheet" href="style.css"></head>
+<body>
+
+<div id="titleScreen" class="screen active">
+<h1 class="title">🕵️ SCOTLAND YARD</h1>
+<div class="credit">Made by Dhairya Shah</div>
+<div class="fog">Mister X is loose in London. Detectives, work together — track him down before he vanishes for good.</div>
+<div class="menu">
+<button class="primary" onclick="show('setupLocal')">▶ Play on this device</button>
+<button onclick="show('setupOnline')">🌐 Play online with friends</button>
+<button onclick="openHowTo()">📖 How to Play</button>
+</div>
+</div>
+
+<div id="setupLocal" class="screen">
+<div class="card">
+<h2 style="color:var(--gold);margin-top:0">Same-Device Game</h2>
+<p style="font-family:sans-serif;color:var(--muted);font-size:.88em">Everyone shares this screen. Between turns you'll be asked to pass the device to the next player, so Mister X's moves stay secret.</p>
+<label>Number of players (1 Mr. X + detectives)</label>
+<select id="localCount" onchange="buildLocalRoster()">
+<option value="3">3 players</option><option value="4">4 players</option><option value="5" selected>5 players</option><option value="6">6 players</option>
+</select>
+<label>Rounds before Mister X wins</label>
+<select id="localMaxRounds">
+<option value="12">12 rounds (short game)</option>
+<option value="18">18 rounds (medium game)</option>
+<option value="24" selected>24 rounds (standard)</option>
+<option value="30">30 rounds (long game)</option>
+</select>
+<div id="localRoster"></div>
+<div class="row" style="margin-top:14px">
+<button onclick="show('titleScreen')">← Back</button>
+<button class="primary" onclick="startLocalGame()">Start Game</button>
+</div>
+</div>
+</div>
+
+<div id="setupOnline" class="screen">
+<div class="card">
+<h2 style="color:var(--gold);margin-top:0">Play Online</h2>
+<p style="font-family:sans-serif;color:var(--muted);font-size:.9em">Create a room and share the password with friends, or join a room using a password you were given. This works whether everyone opens the same published link, or each person downloaded and opened their own copy of this file — as long as everyone has an internet connection.</p>
+<div class="row">
+<button class="primary" style="flex:1" onclick="show('createRoomScreen')">Create Room</button>
+<button style="flex:1" onclick="show('joinRoomScreen')">Join Room</button>
+</div>
+<div class="row" style="margin-top:14px"><button onclick="show('titleScreen')">← Back</button></div>
+</div>
+</div>
+
+<div id="createRoomScreen" class="screen">
+<div class="card">
+<h2 style="color:var(--gold);margin-top:0">Create Room</h2>
+<label>Your name</label><input id="crName" placeholder="e.g. Dhairya">
+<label>Room password (share this with friends)</label>
+<div class="row"><input id="crCode" placeholder="auto-generated" readonly style="flex:1"><button class="small" onclick="genCode()">🎲</button></div>
+<div class="row" style="margin-top:14px">
+<button onclick="show('setupOnline')">← Back</button>
+<button class="primary" onclick="createRoom()">Create & Enter Lobby</button>
+</div>
+<p id="crMsg" style="font-family:sans-serif;color:#ff8686;font-size:.85em"></p>
+</div>
+</div>
+
+<div id="joinRoomScreen" class="screen">
+<div class="card">
+<h2 style="color:var(--gold);margin-top:0">Join Room</h2>
+<label>Your name</label><input id="jrName" placeholder="e.g. Alex">
+<label>Room password</label><input id="jrCode" placeholder="ROOM CODE" style="text-transform:uppercase">
+<div class="row" style="margin-top:14px">
+<button onclick="show('setupOnline')">← Back</button>
+<button class="primary" onclick="joinRoom()">Join Lobby</button>
+</div>
+<p id="jrMsg" style="font-family:sans-serif;color:#ff8686;font-size:.85em"></p>
+</div>
+</div>
+
+<div id="lobbyScreen" class="screen">
+<div class="card">
+<div class="topbar"><h2 style="color:var(--gold);margin:0">Lobby</h2><span class="badge">Password: <span id="lobbyCode"></span></span></div>
+<p style="font-family:sans-serif;color:var(--muted);font-size:.9em">Waiting for players... Share the password above. The host starts the game once everyone has joined.</p>
+<div id="lobbyPlayers"></div>
+<div id="lobbyHostSettings" style="display:none">
+<label style="margin-top:12px">Rounds before Mister X wins (host sets this)</label>
+<select id="lobbyMaxRounds">
+<option value="12">12 rounds (short game)</option>
+<option value="18">18 rounds (medium game)</option>
+<option value="24" selected>24 rounds (standard)</option>
+<option value="30">30 rounds (long game)</option>
+</select>
+</div>
+<div class="row" style="margin-top:14px">
+<button onclick="leaveRoom()">Leave</button>
+<button id="lobbyStartBtn" class="primary" onclick="hostStartGame()">Start Game (host only)</button>
+</div>
+</div>
+</div>
+
+<div id="gameScreen" class="screen">
+<div class="topbar">
+<div><span class="badge" id="roundBadge">Round 1</span> <span id="turnLabel" style="font-family:sans-serif"></span></div>
+<div><button class="small" onclick="toggleFullscreen()" id="fsBtn">⛶ Full Screen</button> <button class="small" onclick="openHowTo()">?</button> <button class="small" onclick="quitGame()">Quit</button></div>
+</div>
+<div class="gameWrap">
+<div id="mapBox">
+<div class="mapTopBar">
+<div class="zoomCtl">
+<button onclick="zoomMap(1.25)">➕</button>
+<button onclick="zoomMap(0.8)">➖</button>
+<button onclick="zoomMap(0,true)">⤢ Fit</button>
+</div>
+<div class="legendMini">
+<span><i style="background:var(--taxi)"></i>🚕</span>
+<span><i style="background:var(--bus)"></i>🚌</span>
+<span><i style="background:var(--tube)"></i>🚇</span>
+<span>🕶️ Mr.X</span>
+</div>
+</div>
+<div id="mapInner"></div>
+</div>
+<div class="sidebar">
+<div class="panel"><h3>Mister X</h3><div id="mrxPanel"></div></div>
+<div class="panel"><h3>Detectives</h3><div id="detPanel"></div></div>
+<div class="panel" id="actionPanel"><h3>Your Move</h3><div id="actionBody"></div></div>
+<div class="panel"><h3>Log</h3><div id="log"></div></div>
+</div>
+</div>
+</div>
+
+<div id="modalBg" class="modalBg"><div class="modal" id="modalContent"></div></div>
+<div id="gateBg" class="gateBg"><div class="gateBox" id="gateBox"></div></div>
+
+<script src="main.js"></script>
+</body></html>
