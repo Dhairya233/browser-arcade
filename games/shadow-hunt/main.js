@@ -1,50 +1,12 @@
-/* ---------- graph generation (spaced out, non-overlapping) ---------- */
-function seededRand(seed){let s=seed;return()=>{s=(s*16807)%2147483647;return (s-1)/2147483646;};}
-const rnd=seededRand(42);
-const N=45;
-const MAPW=1300, MAPH=950, MARGIN=70, MINDIST=110;
-let stations=[];
-{
-  let attempts=0;
-  while(stations.length<N && attempts<20000){
-    attempts++;
-    const x=MARGIN+rnd()*(MAPW-2*MARGIN);
-    const y=MARGIN+rnd()*(MAPH-2*MARGIN);
-    let ok=true;
-    for(const s of stations){ if(Math.hypot(s.x-x,s.y-y)<MINDIST){ok=false;break;} }
-    if(ok) stations.push({id:stations.length,x,y,name:''});
-  }
-  if(stations.length<N){
-    const cols=Math.ceil(Math.sqrt(N)), cellW=(MAPW-2*MARGIN)/cols, cellH=(MAPH-2*MARGIN)/cols;
-    let gi=0;
-    while(stations.length<N){
-      const cx=MARGIN+cellW*(gi%cols)+cellW/2, cy=MARGIN+cellH*Math.floor(gi/cols)+cellH/2;
-      stations.push({id:stations.length,x:cx+(rnd()*30-15),y:cy+(rnd()*30-15),name:''});
-      gi++;
-    }
-  }
-}
-const NAMES=["Baker St","Piccadilly","Waterloo","Camden","Whitehall","Soho","Kensington","Mayfair","Chelsea","Islington","Bethnal Grn","Hackney","Greenwich","Brixton","Clapham","Fulham","Notting Hill","Marylebone","Euston","King's Cross","Angel","Holborn","Covent Gdn","Bloomsbury","Pimlico","Vauxhall","Lambeth","Southwark","Bermondsey","Shoreditch","Dalston","Stratford","Hampstead","Highgate","Wembley","Ealing","Richmond","Wimbledon","Croydon","Bromley","Lewisham","Woolwich","Barking","Stepney","Poplar"];
+import * as Engine from './engine.js';
+import { MAPW, MAPH, REVEAL_ROUNDS, COLORS } from './engine.js';
+
+/* Rules and map generation live in engine.js. This file draws the game, handles input and runs the network. */
+const rnd = Engine.seededRand(42);
+const MAP = Engine.buildMap(rnd);
+const { stations, edges } = MAP;
 const EMOJI=["🕵️","🎭","🌉","🎸","🏛️","🎷","👑","💎","⚽","📚","🎨","🦊","⏰","🎤","🎳","🏉","🎈","🍩","🚂","🔑","👼","⚖️","🎬","📖","🌷","🎡","⛪","🍺","🏺","🧵","🎧","🏟️","🌳","🦉","🏆","🎪","🦌","🎾","🏢","🌼","🚉","⚓","🐕","🧭","🌲"];
-stations.forEach((s,i)=>s.name=NAMES[i]||("Station "+i));
-function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
-let edges=[];
-function addEdge(a,b,type){ if(a===b) return; if(edges.find(e=>((e.a===a&&e.b===b)||(e.a===b&&e.b===a))&&e.type===type)) return; edges.push({a,b,type}); }
-stations.forEach((s,i)=>{
-  const others=stations.filter(o=>o.id!==i).map(o=>({o,d:dist(s,o)})).sort((a,b)=>a.d-b.d);
-  for(let k=0;k<3;k++) addEdge(i,others[k].o.id,'taxi');
-});
-stations.forEach((s,i)=>{
-  const others=stations.filter(o=>o.id!==i).map(o=>({o,d:dist(s,o)})).sort((a,b)=>a.d-b.d);
-  for(let k=4;k<7;k++) if(others[k]) addEdge(i,others[k].o.id,'bus');
-});
-function undergroundLine(order){for(let i=0;i<order.length-1;i++) addEdge(order[i],order[i+1],'underground');}
-undergroundLine([2,18,19,22,23,10,29,11,31].filter(x=>x<N));
-undergroundLine([16,6,8,25,26,37].filter(x=>x<N));
-undergroundLine([33,34,17,0,21,4,27,28,40].filter(x=>x<N));
-undergroundLine([35,36,15,14,13,39,41].filter(x=>x<N));
-undergroundLine([32,20,9,30,43,44,42].filter(x=>x<N));
-function neighborsAny(stationId){return edges.filter(e=>e.a===stationId||e.b===stationId).map(e=>({to:e.a===stationId?e.b:e.a,type:e.type}));}
+function neighborsAny(stationId){return MAP.adj[stationId];}
 function stationRingColor(id){
   const touching=edges.filter(e=>e.a===id||e.b===id).map(e=>e.type);
   if(touching.includes('underground')) return 'var(--tube)';
@@ -58,78 +20,13 @@ let ME={idx:0,isHost:false,online:false,roomCode:null,name:'You'};
 let NET={mode:null,db:null,doc:null,unsub:null,peer:null,conns:[],hostConn:null};
 let roomData=null;
 let mapFitted=false;
-const REVEAL_ROUNDS=[3,8,13,18,24];
-const MAX_ROUNDS=24;
-const COLORS=['#e53935','#3949ab','#43a047','#fb8c00','#8e24aa','#00acc1'];
 
-function newGame(playerNames, maxRounds){
-  maxRounds = maxRounds || 24;
-  const players=playerNames.map((nm,i)=>({
-    name:nm, isMrX:i===0, pos:null,
-    color: i===0?'#111':COLORS[(i-1)%COLORS.length],
-    tickets: i===0? {taxi:999,bus:999,underground:999,black:5,double:2} : {taxi:10,bus:8,underground:4},
-    revealedPos:null
-  }));
-  return {
-    players, round:1, turn:1,
-    log:["The game begins. Mister X slips into the crowd..."],
-    mrXHistory:[], gameOver:false, winner:null,
-    doubleMovePending:false, mrxVisible:false,
-    startingPhase:true, startPickIdx:0,
-    maxRounds
-  };
-}
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+const newGame = Engine.newGame;
+const shuffle = (a) => Engine.shuffle(a, rnd);
+const currentPlayer = () => Engine.currentPlayer(G);
+const validMoves = (playerIdx) => Engine.validMoves(G, MAP, playerIdx);
+const takenStartPositions = () => Engine.takenStartPositions(G);
 
-function currentPlayer(){return G.players[G.turn-1];}
-function isRevealRound(r){return REVEAL_ROUNDS.includes(r);}
-function addLog(t){G.log.push(t); if(G.log.length>60)G.log.shift();}
-
-function validMoves(playerIdx){
-  const p=G.players[playerIdx];
-  if(p.pos===null || p.pos===undefined) return [];
-  let opts=neighborsAny(p.pos);
-  const occupied=G.players.filter((pl,i)=>i!==playerIdx && !pl.isMrX && pl.pos!==null).map(pl=>pl.pos);
-  opts=opts.filter(o=>!occupied.includes(o.to));
-  if(!p.isMrX){ opts=opts.filter(o=>p.tickets[o.type]>0); }
-  return opts;
-}
-
-function doMove(playerIdx,to,type,isBlack){
-  const p=G.players[playerIdx];
-  p.pos=to;
-  if(p.isMrX){
-    if(isBlack) p.tickets.black--; else p.tickets[type]--;
-    G.mrXHistory.push({round:G.round,type:isBlack?'black':type});
-    if(isRevealRound(G.round)){ p.revealedPos=to; G.mrxVisible=true; addLog(`Round ${G.round}: Mister X travels by ${isBlack?'black ticket':type}. He is spotted at ${stations[to].name}!`); }
-    else { G.mrxVisible=false; addLog(`Round ${G.round}: Mister X travels by ${isBlack?'black ticket':type}.`); }
-    // Check if MrX moved onto a detective's square
-    const caughtBy=G.players.find(pl=>!pl.isMrX && pl.pos===to);
-    if(caughtBy){ G.gameOver=true; G.winner='detectives'; G.mrxVisible=true; addLog(`🚨 Mister X walked into ${caughtBy.name}! Detectives win!`); }
-  } else {
-    p.tickets[type]--;
-    const mrx=G.players.find(pl=>pl.isMrX);
-    mrx.tickets[type]++;
-    addLog(`${p.name} travels to ${stations[to].name} by ${type}.`);
-    if(mrx.pos===to){ G.gameOver=true; G.winner='detectives'; G.mrxVisible=true; addLog(`🚨 ${p.name} has captured Mister X at ${stations[to].name}! Detectives win!`); }
-  }
-}
-
-function nextTurn(){
-  if(G.gameOver) return;
-  G.turn++;
-  if(G.turn>G.players.length){ G.turn=1; G.round++; }
-  if(G.round>G.maxRounds){ G.gameOver=true; G.winner='mrx'; addLog(`🕶️ Mister X evaded capture for ${G.maxRounds} rounds. Mister X wins!`); }
-  if(!G.gameOver && !currentPlayer().isMrX){
-    if(validMoves(G.turn-1).length===0){
-      addLog(`${currentPlayer().name} has no valid moves and forfeits this turn.`);
-      const allStuck = G.players.every((p,i)=>p.isMrX || validMoves(i).length===0);
-      if(allStuck){ G.gameOver=true; G.winner='mrx'; addLog('All detectives are stuck! Mister X wins!'); afterTurnAdvance(); return; }
-      nextTurn(); return;
-    }
-  }
-  afterTurnAdvance();
-}
 function afterTurnAdvance(){
   if(G.gameOver){ render(); persistState(); return; }
   if(!ME.online){ showPassGate(); }
@@ -184,15 +81,7 @@ function renderStartPickMode(){
 }
 
 function drawMapForStartPick(){
-  const currentPicker=G.players[G.startPickIdx];
-  // Detectives only see stations taken by OTHER detectives (not MrX's secret spot)
-  // MrX sees nobody's taken spot (he picks first anyway, index 0)
-  const takenPositions=G.players.filter((pl,i)=>{
-    if(i>=G.startPickIdx) return false; // hasn't picked yet
-    if(pl.isMrX) return false;          // never reveal MrX's start
-    if(currentPicker.isMrX) return false; // MrX sees no one's spot
-    return true;
-  }).map(pl=>pl.pos).filter(p=>p!==null);
+  const takenPositions=takenStartPositions();
   let svg=`<svg viewBox="0 0 ${MAPW} ${MAPH}" xmlns="http://www.w3.org/2000/svg">`;
   svg+=`<defs>
     <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
@@ -229,13 +118,7 @@ function drawMapForStartPick(){
 }
 
 function startPickClicked(id){
-  const currentPicker=G.players[G.startPickIdx];
-  const takenPositions=G.players.filter((pl,i)=>{
-    if(i>=G.startPickIdx) return false;
-    if(pl.isMrX) return false;
-    if(currentPicker.isMrX) return false;
-    return true;
-  }).map(pl=>pl.pos).filter(p=>p!==null);
+  const takenPositions=takenStartPositions();
   if(takenPositions.includes(id)) return;
   startPickSelected=id;
   const p=G.players[G.startPickIdx];
@@ -255,13 +138,10 @@ function confirmStartPosition(){
     document.getElementById('mapInner').innerHTML='';
     return;
   }
-  G.players[G.startPickIdx].pos=startPickSelected;
+  G=Engine.pickStartLocal(G,startPickSelected);
   startPickSelected=null;
-  G.startPickIdx++;
-  if(G.startPickIdx>=G.players.length){
+  if(!G.startingPhase){
     // All players have picked — start the game properly
-    G.startingPhase=false;
-    delete G.startPickIdx;
     // Show a reveal gate
     showStartRevealGate();
   } else {
@@ -281,11 +161,8 @@ function showStartRevealGate(){
 function beginGameFromStartPick(){
   document.getElementById('gateBg').classList.remove('active');
   // Check if any detective accidentally chose MrX's starting square
-  const mrx=G.players.find(p=>p.isMrX);
-  const collision=G.players.find(p=>!p.isMrX && p.pos===mrx.pos);
-  if(collision){
-    G.gameOver=true; G.winner='detectives'; G.mrxVisible=true;
-    addLog(`🚨 ${collision.name} started on the same square as Mister X at ${stations[mrx.pos].name}! Detectives win!`);
+  G=Engine.checkStartCollision(G,MAP);
+  if(G.gameOver){
     render();
     return;
   }
@@ -568,39 +445,12 @@ function requestAction(action){
 }
 function performAction(action){
   if(!G) return;
-  if(action.cmd==='startPick'){
-    const {playerIdx, pos}=action;
-    if(G.players[playerIdx]) G.players[playerIdx].pos=pos;
-    // Check if all players have picked
-    if(G.players.every(p=>p.pos!==null)){
-      G.startingPhase=false;
-      delete G.startPickIdx;
-    }
-    render();
-    persistState();
-    return;
-  }
-  if(action.cmd==='startDouble'){
-    G.doubleMovePending=true;
-    render();
-    persistState();
-    return;
-  }
-  if(action.cmd==='move'){
-    const {playerIdx,to,type,isBlack}=action;
-    const cp=G.players[playerIdx];
-    doMove(playerIdx,to,type,isBlack);
-    // If doMove ended the game (detective caught MrX, or MrX walked into detective), stop here
-    if(G.gameOver){ pendingDoubleFirst=null; G.doubleMovePending=false; afterTurnAdvance(); return; }
-    if(cp.isMrX && G.doubleMovePending && !pendingDoubleFirst){
-      pendingDoubleFirst=true; cp.tickets.double--;
-      addLog('Mister X uses a Double Move ticket.');
-      render(); persistState();
-      return;
-    }
-    pendingDoubleFirst=null; G.doubleMovePending=false;
-    nextTurn();
-  }
+  const res=Engine.applyAction(G,MAP,action);
+  if(!res.handled) return;
+  G=res.state;
+  if(res.turnAdvanced){ afterTurnAdvance(); return; }
+  render();
+  persistState();
 }
 
 /* ---------- rendering ---------- */
@@ -639,7 +489,7 @@ document.addEventListener('fullscreenchange',()=>{
 });
 window.addEventListener('resize',()=>{ if(G) zoomMap(0,true); });
 
-let selectedTarget=null, pendingDoubleFirst=null, mapScale=1;
+let selectedTarget=null, mapScale=1;
 function render(){
   if(!G) return;
   if(G.startingPhase){ renderStartPickMode(); return; }
@@ -771,3 +621,28 @@ function chooseType(type,isBlack){
   requestAction({cmd:'move',playerIdx:idx,to:selectedTarget,type,isBlack:!!isBlack});
   selectedTarget=null;
 }
+
+/* Inline onclick/onchange attributes look these up on window. */
+Object.assign(window, {
+  beginGameFromStartPick,
+  buildLocalRoster,
+  chooseType,
+  closeGate,
+  closeModal,
+  confirmStartPosition,
+  createRoom,
+  genCode,
+  hostStartGame,
+  joinRoom,
+  leaveRoom,
+  openHowTo,
+  openStartPick,
+  quitGame,
+  show,
+  startDouble,
+  startLocalGame,
+  startPickClicked,
+  stationClicked,
+  toggleFullscreen,
+  zoomMap
+});
