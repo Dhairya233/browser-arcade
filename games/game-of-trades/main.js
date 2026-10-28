@@ -1,5 +1,12 @@
 import * as Rules from './engine.js';
 import {RESOURCE, COSTS, MAX_PLAYERS, hasResources} from './engine.js';
+import {gameOfTradesAdapter, GAME_ACTIONS, COLOR_CHOICES} from './adapter.js';
+import {createHost} from '../../shared/net/host.js';
+import {createClient} from '../../shared/net/client.js';
+import {createPeerJsTransport} from '../../shared/net/transport-peerjs.js';
+import {peerOptions} from '../../shared/net/peer-options.js';
+import {createTokenStore} from '../../shared/net/ids.js';
+import {describeNetError} from '../../shared/net/protocol.js';
 
 /* The rules live in engine.js. This file draws the game, handles input and runs the network. */
 
@@ -19,7 +26,6 @@ const DEV_LABELS = {
   yearofplenty:'🌽 Year of Plenty',
   monopoly:'📈 Monopoly'
 };
-const COLOR_CHOICES = ['#c0392b','#2c5f8a','#ede7d9','#d98a2b','#3f6b3f','#8e44ad','#e8d24a','#2f2f2f'];
 const COLOR_NAMES = {'#c0392b':'Red','#2c5f8a':'Blue','#ede7d9':'White','#d98a2b':'Orange','#3f6b3f':'Green','#8e44ad':'Purple','#e8d24a':'Yellow','#2f2f2f':'Black'};
 
 /* ============================= GLOBAL UI STATE ============================= */
@@ -29,16 +35,13 @@ let uiShowRules = false;
 let toastMsg = null;
 let audioCtx = null;
 const PEER_PREFIX = 'settlers-isle-';
-// To use your own PeerJS server / a TURN server, set window.SI_PEER_OPTIONS before this script, e.g.
-// {host:'peer.example.com', port:443, secure:true, path:'/', config:{iceServers:[{urls:'turn:...',username:'',credential:''}]}}
-const PEER_OPTIONS = Object.assign({debug:1}, window.SI_PEER_OPTIONS||{});
-const net = {active:false, role:null, code:null, peer:null, conn:null, mySeat:null, token:null, name:'', seats:[], hideMode:'off', started:false, actor:null, status:'idle', welcomed:false, lobby:null, rt:null};
+// To use your own PeerJS server or a TURN server, see shared/net/peer-options.js.
+const net = {active:false, role:null, code:null, mySeat:null, status:'idle', lobby:null, requests:[], host:null, client:null, transport:null};
 const HIDE_HELP = {
   off:'Everyone sees the tiles from the start.',
   first:'Tiles stay face-down until every player has placed their first settlement and road.',
   all:'Tiles stay face-down for all placements. Starting resources are handed out when they flip.'
 };
-const GAME_ACTIONS = new Set(['rollDice','startBuildRoad','startBuildSettlement','startBuildCity','cancelBuild','clickVertexSettlement','clickVertexCity','clickEdge','clickTile','buyDevCard','playDevCard','openTradeChooser','setUiMode','sendTrade','respondTrade','confirmBankTrade','doConfirmDiscard','chooseVictim','resolveMonopolyAction','confirmYoPAction','endTurn']);
 
 /* ============================= UTIL ============================= */
 // Questions about the current state, answered by the engine.
@@ -66,13 +69,11 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 function toast(msg){
-  if(net.role==='host' && net.actor!=null && net.actor!==net.mySeat){ netSendTo(net.actor,{t:'toast',msg}); return; }
   toastMsg = msg;
   render();
   setTimeout(()=>{ if(toastMsg===msg){ toastMsg=null; render(); } }, 2200);
 }
 function playSound(type){
-  if(net.role==='host' && state) state.sfx = {id:((state.sfx&&state.sfx.id)||0)+1, type};
   if(!ui.sound) return;
   try{
     audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
@@ -602,7 +603,7 @@ function renderRulesModal(){
 function renderLeaveOverlay(){
   return `<div class="overlay-backdrop"><div class="overlay-card">
     <h3>Leave the game?</h3>
-    <p class="muted">${net.role==='host'?'You are the host — leaving closes the room for everyone.':'You can rejoin later from Play Online with the same code and name.'}</p>
+    <p class="muted">${net.role==='host'?'You are the host — leaving closes the room for everyone.':'You can rejoin later from Play Online with the same code and name. In a different tab or browser the host has to approve it.'}</p>
     <button class="btn btn-danger btn-block" data-action="confirmLeave">Leave</button>
     <button class="btn btn-block" data-action="cancelLeave">Stay</button>
   </div></div>`;
@@ -660,7 +661,6 @@ function render(){
   if(state){
     if(ui.wasHidden && !state.tilesHidden){ ui.revealUntil = Date.now()+1600; setTimeout(()=>toast('🗺️ The tiles are revealed!'),50); }
     ui.wasHidden = !!state.tilesHidden;
-    if(net.role==='client' && state.sfx && state.sfx.id!==ui.lastSfx){ ui.lastSfx = state.sfx.id; playSound(state.sfx.type); }
   }
   if(ui.screen==='lobby'){
     html = renderLobby();
@@ -681,6 +681,7 @@ function render(){
     }
   }
   if(uiShowRules) html += renderRulesModal();
+  html += renderSeatRequests();
   app.innerHTML = html;
   bindEvents();
   if(state) persistGame();
@@ -707,13 +708,14 @@ function renderOnlineMenu(){
     <p class="lobby-hint" style="margin:0">— or join a friend —</p>
     <div class="online-block"><input type="text" class="name-input online-code" placeholder="CODE" maxlength="5" value="${escapeHtml(O.code)}" autocapitalize="characters" /><button class="btn btn-accent" data-action="joinRoom">Join</button></div>
     ${net.status==='connecting'?'<p class="lobby-hint">Connecting… this can take up to a few tries if the network is slow. Tap Back to cancel.</p>':''}
+    ${net.status==='pending'?'<p class="lobby-hint">The host has to approve you taking this seat. Waiting for their answer… Tap Back to cancel.</p>':''}
     <div class="lobby-buttons"><button class="btn btn-ghost" data-action="goHome">Back</button></div>
   </div>`;
 }
 function renderOnlineRoom(){
   const host = net.role==='host';
-  const players = host ? net.seats.map(s=>({name:s.name,color:s.color,on:!!s.connected})) : ((net.lobby&&net.lobby.players)||[]);
-  const hide = host ? net.hideMode : ((net.lobby&&net.lobby.hide)||'off');
+  const players = (net.lobby&&net.lobby.players)||[];
+  const hide = (net.lobby&&net.lobby.hide)||'off';
   const link = /^https?:/.test(location.protocol);
   return `<div class="lobby">
     <h1>Room</h1>
@@ -802,8 +804,7 @@ function handleAction(action, ds){
     if(action==='setUiMode' && ds.mode==='trade-build'){ ui.tradeGive={}; ui.tradeGet={}; ui.tradeTarget=otherPlayerIndices()[0]; }
     afterPayload(action);
     const d = Object.assign({}, ds);
-    if(net.role==='client'){ netSend({t:'act', a:action, ds:d, p}); }
-    else if(net.role==='host'){ hostApply(net.mySeat, action, d, p); return; }
+    if(net.active) sendOnlineAction({a:action, ds:d, p});     // the host decides; our screen updates when it answers
     else applyGameAction(action, d, p);
     render(); return;
   }
@@ -840,221 +841,104 @@ function handleAction(action, ds){
       ensureOnline();
       if(ui.online.code.trim().length<5){ ui.online.error='Enter the 5-character room code.'; break; }
       saveName(); joinRoom(ui.online.code.trim().toUpperCase(), ui.online.name); break;
-    case 'setOnlineColor': if(net.role==='host') hostColor(0, ds.color); else netSend({t:'color', color:ds.color}); break;
+    case 'setOnlineColor': if(net.role==='host') net.host.setColor(ds.color); else if(net.client) net.client.pref(ds.color); break;
     case 'setHideMode':
-      if(net.role==='host'){ net.hideMode=ds.m; hostSync(); } else if(ui.lobby){ ui.lobby.hide=ds.m; }
+      if(net.role==='host'){ net.host.setSetting('hideMode', ds.m); } else if(ui.lobby){ ui.lobby.hide=ds.m; }
       break;
     case 'startOnlineGame': startOnlineGame(); break;
+    case 'approveSeat': if(net.host) net.host.approve(+ds.id); break;
+    case 'denySeat': if(net.host) net.host.deny(+ds.id); break;
     case 'copyCode': if(navigator.clipboard) navigator.clipboard.writeText(net.code).then(()=>toast('Room code copied')).catch(()=>{}); break;
     case 'copyLink': if(navigator.clipboard) navigator.clipboard.writeText(location.href.split('#')[0]+'#join='+net.code).then(()=>toast('Invite link copied')).catch(()=>{}); break;
   }
   render();
 }
 
-/* ============================= ONLINE (PeerJS, host-authoritative) ============================= */
-const CODE_CHARS='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+/* ============================= ONLINE (shared netcode in shared/net/) ============================= */
+const tokens = createTokenStore('game-of-trades');
 function saveName(){ try{ localStorage.setItem('si_name', ui.online.name); }catch(e){} }
-function myToken(){
-  try{ let t=sessionStorage.getItem('si_tok'); if(!t){ t=Math.random().toString(36).slice(2)+Date.now().toString(36); sessionStorage.setItem('si_tok',t); } return t; }
-  catch(e){ return net.token || (Math.random().toString(36).slice(2)); }
-}
 function resetNet(){
-  clearTimeout(net.rt);
-  Object.assign(net,{active:false,role:null,code:null,peer:null,conn:null,mySeat:null,seats:[],hideMode:'off',started:false,actor:null,status:'idle',welcomed:false,lobby:null,rt:null});
+  Object.assign(net,{active:false,role:null,code:null,mySeat:null,status:'idle',lobby:null,requests:[],host:null,client:null,transport:null});
+}
+// Close whatever is open. Detach first so late callbacks from the old room are ignored.
+function stopNet(){
+  const {host, client, transport} = net;
+  net.host = null; net.client = null; net.transport = null;
+  if(host) host.close();
+  if(client) client.leave();
+  if(transport && transport.dispose) setTimeout(()=>transport.dispose(), 300);
 }
 function netFail(msg){
-  try{ if(net.peer) net.peer.destroy(); }catch(e){}
-  resetNet(); state=null; ui.leaveAsk=false; ensureOnline(); ui.online.error=msg; ui.screen='online-menu'; render();
+  stopNet(); resetNet(); state=null; ui.leaveAsk=false; ensureOnline(); ui.online.error=msg; ui.screen='online-menu'; render();
 }
-function leaveOnline(){
-  if(net.role==='host') net.seats.forEach(s=>{ try{ s.conn && s.conn.send(JSON.stringify({t:'closed'})); }catch(e){} });
-  const peer=net.peer;
-  resetNet(); state=null; ui.screen='home';
-  setTimeout(()=>{ try{ peer && peer.destroy(); }catch(e){} }, 150);
-}
-function netSend(m){
-  if(net.conn && net.conn.open){ net.conn.send(JSON.stringify(m)); } else toast('Not connected to the room.');
-}
-function netSendTo(seat,m){
-  const s=net.seats[seat]; if(s && s.conn && s.conn.open){ try{ s.conn.send(JSON.stringify(m)); }catch(e){} }
-}
+function leaveOnline(){ stopNet(); resetNet(); state=null; ui.screen='home'; }
 function peerReady(){
-  if(typeof Peer==='undefined'){ ensureOnline(); ui.online.error='Online play could not load (no internet?).'; return false; }
+  if(typeof Peer==='undefined'){ ensureOnline(); ui.online.error=describeNetError({type:'no-peerjs'}); return false; }
   return true;
 }
-const CONNECT_TIMEOUT_MS = 12000;
-const HOST_MAX_ATTEMPTS = 4;
-/* ---- host ---- */
-function createRoom(name){
-  if(!peerReady()) return;
-  resetNet(); net.active=true; net.role='host'; net.status='connecting'; net.token=myToken(); net.mySeat=0;
-  net.seats=[{token:net.token, name:cleanName(name)||'Player 1', color:COLOR_CHOICES[0], conn:null, connected:true}];
-  tryHost(0);
-}
-function tryHost(n){
-  net.code = Array.from({length:5},()=>CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join('');
-  const peer = new Peer(PEER_PREFIX+net.code, PEER_OPTIONS); net.peer=peer;
-  let settled=false;
-  const finish=(fn)=>{ if(settled||net.peer!==peer) return; settled=true; clearTimeout(timer); fn(); };
-  const timer=setTimeout(()=>{
-    finish(()=>{
-      try{ peer.destroy(); }catch(e){}
-      if(n<HOST_MAX_ATTEMPTS) tryHost(n+1);
-      else netFail('Could not reach the matchmaking server. Check your internet connection (some firewalls/VPNs block it) and try again.');
-    });
-  }, CONNECT_TIMEOUT_MS);
-  peer.on('open',()=>{ finish(()=>{ net.status='connected'; ui.screen='online-room'; render(); }); });
-  peer.on('connection',hostOnConnection);
-  peer.on('disconnected',()=>{ try{ peer.reconnect(); }catch(e){} });
-  peer.on('error',err=>{
-    if(net.peer!==peer || settled) return;
-    if(err.type==='unavailable-id' && n<HOST_MAX_ATTEMPTS){ finish(()=>{ try{ peer.destroy(); }catch(e){} tryHost(n+1); }); return; }
-    if(net.status==='connecting') finish(()=>netFail('Could not reach the matchmaking server ('+err.type+').'));
-  });
-}
-function hostOnConnection(conn){
-  conn.on('data',raw=>{
-    let m; try{ m=JSON.parse(raw); }catch(e){ return; }
-    if(m.t==='hello') return hostHello(conn,m);
-    const s=net.seats.findIndex(x=>x.conn===conn); if(s<0) return;
-    if(m.t==='act') hostApply(s, m.a, m.ds||{}, m.p||{});
-    else if(m.t==='color') hostColor(s, m.color);
-  });
-  conn.on('close',()=>hostDrop(conn));
-  conn.on('error',()=>hostDrop(conn));
-}
-function hostReject(conn,reason){
-  try{ conn.send(JSON.stringify({t:'reject',reason})); }catch(e){}
-  setTimeout(()=>{ try{ conn.close(); }catch(e){} },400);
-}
-function hostHello(conn,m){
-  const tok=String(m.token||'').slice(0,60), nm=cleanName(m.name);
-  let s=net.seats.findIndex(x=>x.token===tok);
-  if(s<0){
-    if(net.started){
-      s=net.seats.findIndex(x=>!x.connected && x.name.toLowerCase()===nm.toLowerCase());
-      if(s<0) return hostReject(conn,'That game has already started. To rejoin, use the same name as before.');
-      net.seats[s].token=tok;
-    } else if(net.seats.length>=MAX_PLAYERS){ return hostReject(conn,'This room is full.'); }
-    else { s=net.seats.length; net.seats.push({token:tok, name:nm||('Player '+(s+1)), color:COLOR_CHOICES.find(c=>!net.seats.some(x=>x.color===c))}); }
-  }
-  const seat=net.seats[s];
-  if(seat.conn && seat.conn!==conn){ try{ seat.conn.close(); }catch(e){} }
-  seat.conn=conn; seat.connected=true;
-  if(!net.started && nm) seat.name=nm;
-  try{ conn.send(JSON.stringify({t:'welcome',seat:s,code:net.code})); }catch(e){}
-  hostSync(); render();
-}
-function hostDrop(conn){
-  const s=net.seats.findIndex(x=>x.conn===conn); if(s<0) return;
-  if(!net.started) net.seats.splice(s,1); else { net.seats[s].conn=null; net.seats[s].connected=false; }
-  hostSync(); render();
-}
-function hostColor(s,color){
-  if(net.started || !COLOR_CHOICES.includes(color)) return;
-  const o=net.seats.findIndex((x,i)=>i!==s && x.color===color);
-  if(o>=0) net.seats[o].color=net.seats[s].color;
-  net.seats[s].color=color; hostSync();
-}
-function viewFor(i){
-  const v=JSON.parse(JSON.stringify(state)), over=v.phase==='gameover';
-  v.players.forEach((p,j)=>{
-    p.password='';
-    if(j===i||over) return;
-    p.handCount=Object.values(p.resources).reduce((a,b)=>a+b,0);
-    p.resources={wood:0,brick:0,ore:0,wheat:0,sheep:0}; p.devCards=[]; p.newDevCards=[];
-  });
-  v.devDeck=v.devDeck.map(()=>0);
-  if(v.tilesHidden) v.board.tiles.forEach(t=>{ t.resource=null; t.number=null; t.hasRobber=false; });
-  return v;
-}
-function hostSync(){
-  if(net.role!=='host') return;
-  if(state && net.started) state.online={code:net.code, connected:net.seats.map(s=>!!s.connected)};
-  net.seats.forEach((s,i)=>{
-    if(!s.conn || !s.conn.open) return;
-    const msg = net.started ? {t:'state', state:viewFor(i)}
-      : {t:'lobby', you:i, code:net.code, hide:net.hideMode, players:net.seats.map(x=>({name:x.name,color:x.color,on:!!x.connected}))};
-    try{ s.conn.send(JSON.stringify(msg)); }catch(e){}
-  });
-}
-function hostApply(seat,a,ds,p){
-  net.actor=seat;
-  try{ if(GAME_ACTIONS.has(a) && validate(seat,a,ds,p)) applyGameAction(a,ds,p); }
-  finally{ net.actor=null; }
-  hostSync(); render();
+function makeTransport(){ return createPeerJsTransport({Peer, options:peerOptions(), prefix:PEER_PREFIX}); }
+function deliver(events){ (events||[]).forEach(ev=>{ if(ev.type==='toast') toast(ev.msg); else if(ev.type==='sound') playSound(ev.sound); }); }
+function showView(view, online, you){ state=view; state.online=online; net.mySeat=you; ui.screen='game'; }
+
+function sendOnlineAction(action){
+  if(net.role==='host') net.host.act(action);
+  else if(!net.client || !net.client.act(action)) toast('Not connected to the room.');
 }
 function startOnlineGame(){
-  if(net.seats.length<3){ toast('You need at least 3 players.'); return; }
-  net.started=true;
-  createGame(net.seats.length, net.seats.map(s=>({name:s.name,color:s.color,password:''})), {hideMode:net.hideMode});
-  state.deviceHolder=null;
-  hostSync();
+  if(!net.host || !net.host.startGame()) toast('You need at least 3 players.');
 }
-/* ---- client ---- */
-const JOIN_MAX_ATTEMPTS = 3;
-function joinRoom(code,name){
+function renderSeatRequests(){
+  const reqs = (net.role==='host' && net.requests) || [];
+  if(!reqs.length) return '';
+  return `<div class="seat-requests">${reqs.map(r=>`<div class="seat-request"><span><b>${escapeHtml(r.name)}</b> wants to take over <b>${escapeHtml(r.seatName)}</b>'s seat. Only allow this if you know who it is.</span><button class="btn btn-sm btn-primary" data-action="approveSeat" data-id="${r.id}">Allow</button><button class="btn btn-sm btn-ghost" data-action="denySeat" data-id="${r.id}">Deny</button></div>`).join('')}</div>`;
+}
+
+/* ---- host ---- */
+async function createRoom(name){
   if(!peerReady()) return;
-  resetNet(); net.active=true; net.role='client'; net.code=code; net.name=name; net.token=myToken(); net.status='connecting';
-  tryJoin(0);
+  stopNet(); resetNet();
+  net.active=true; net.role='host'; net.status='connecting'; net.mySeat=0;
+  net.transport = makeTransport();
+  const host = createHost({transport:net.transport, game:gameOfTradesAdapter, name:cleanName(name)||'Player 1', onUpdate:snap=>hostUpdate(host, snap)});
+  net.host = host;
+  render();
+  try{
+    const code = await host.start();
+    if(net.host!==host) return;
+    net.code=code; net.status='connected'; ui.screen='online-room'; render();
+  }catch(err){ if(net.host===host) netFail(describeNetError(err)); }
+}
+function hostUpdate(host, snap){
+  if(net.host!==host) return;
+  net.lobby = {players:snap.seats, hide:snap.settings.hideMode};
+  net.requests = snap.requests;
+  if(snap.phase==='playing') showView(snap.view, snap.online, 0);
+  deliver(snap.events);
   render();
 }
-function tryJoin(n){
-  const peer=new Peer(undefined, PEER_OPTIONS); net.peer=peer;
-  let settledInitial=false;
-  const finishInitial=(fn)=>{ if(settledInitial||net.peer!==peer||net.welcomed) return; settledInitial=true; clearTimeout(timer); fn(); };
-  const timer=setTimeout(()=>{
-    finishInitial(()=>{
-      try{ peer.destroy(); }catch(e){}
-      if(n<JOIN_MAX_ATTEMPTS) tryJoin(n+1);
-      else netFail('Could not reach the matchmaking server. Check your internet connection (some firewalls/VPNs block it) and try again.');
-    });
-  }, CONNECT_TIMEOUT_MS);
-  peer.on('open',()=>{ finishInitial(()=>clientConnect()); });
-  peer.on('disconnected',()=>{ try{ peer.reconnect(); }catch(e){} });
-  peer.on('error',err=>{
-    if(net.peer!==peer) return;
-    if(!net.welcomed){
-      if(err.type==='peer-unavailable') finishInitial(()=>netFail('Room not found. Check the code and try again.'));
-      else finishInitial(()=>{
-        if(n<JOIN_MAX_ATTEMPTS){ try{ peer.destroy(); }catch(e){} tryJoin(n+1); }
-        else netFail('Could not reach the matchmaking server ('+err.type+').');
-      });
-    } else if(err.type==='peer-unavailable'){
-      scheduleReconnect();
-    }
+
+/* ---- player ---- */
+function joinRoom(code,name){
+  if(!peerReady()) return;
+  stopNet(); resetNet();
+  net.active=true; net.role='client'; net.code=code; net.status='connecting';
+  net.transport = makeTransport();
+  const client = createClient({
+    transport:net.transport, code, name:cleanName(name), token:tokens.getOrCreate(code),
+    onStatus:(st,detail)=>clientStatus(client, st, detail),
+    onLobby:m=>{ if(net.client!==client) return; net.lobby={players:m.seats, hide:m.settings.hideMode}; net.mySeat=m.you; ui.screen='online-room'; render(); },
+    onState:m=>{ if(net.client!==client) return; showView(m.view, m.online, m.you); deliver(m.events); render(); }
   });
+  net.client = client;
+  client.connect();
+  render();
 }
-function clientConnect(){
-  const c=net.peer.connect(PEER_PREFIX+net.code,{reliable:true}); net.conn=c;
-  let opened=false;
-  const timer=setTimeout(()=>{
-    if(opened || net.conn!==c || net.welcomed) return;
-    try{ c.close(); }catch(e){}
-    netFail('Could not reach the host (connection timed out). Make sure the room code is right and the host still has the room open, then try again.');
-  }, CONNECT_TIMEOUT_MS);
-  c.on('open',()=>{ opened=true; clearTimeout(timer); c.send(JSON.stringify({t:'hello',token:net.token,name:net.name})); });
-  c.on('data',raw=>{ let m; try{ m=JSON.parse(raw); }catch(e){ return; } clientMsg(m); });
-  c.on('close',()=>{ if(net.conn!==c) return; clearTimeout(timer); if(net.welcomed){ net.status='reconnecting'; render(); scheduleReconnect(); } else netFail('Could not connect to the room.'); });
-  c.on('error',()=>{ if(net.conn!==c || net.welcomed) return; clearTimeout(timer); netFail('Could not connect to the room.'); });
-}
-function scheduleReconnect(){
-  clearTimeout(net.rt);
-  net.rt=setTimeout(()=>{
-    if(!net.active || !net.peer || net.peer.destroyed) return;
-    if(net.peer.disconnected){ try{ net.peer.reconnect(); }catch(e){} }
-    clientConnect();
-  },2500);
-}
-function clientMsg(m){
-  switch(m.t){
-    case 'welcome': net.mySeat=m.seat; net.welcomed=true; net.status='connected'; break;
-    case 'lobby': net.lobby=m; net.mySeat=m.you; net.welcomed=true; net.status='connected'; ui.screen='online-room'; break;
-    case 'state': net.welcomed=true; net.status='connected'; state=m.state; ui.screen='game'; break;
-    case 'toast': toast(m.msg); return;
-    case 'reject': netFail(m.reason); return;
-    case 'closed': netFail('The host closed the room.'); return;
-  }
+function clientStatus(client, st, detail){
+  if(net.client!==client) return;
+  net.status = st;
+  if(st==='host-left') return netFail('The host left or lost their connection, so this game cannot continue. Ask them to host a new room.');
+  if(st==='closed') return netFail('The host closed the room.');
+  if(st==='rejected' || st==='failed') return netFail(detail);
   render();
 }
 
@@ -1108,7 +992,7 @@ function init(){
   const jm = location.hash.match(/join=([A-Za-z0-9]{5})/);
   if(jm){ ensureOnline(); ui.online.code=jm[1].toUpperCase(); ui.screen='online-menu'; }
   document.addEventListener('visibilitychange',()=>{
-    if(!document.hidden && net.role==='client' && net.status==='reconnecting'){ clearTimeout(net.rt); scheduleReconnect(); }
+    if(!document.hidden && net.client) net.client.nudge();
   });
   render();
 }

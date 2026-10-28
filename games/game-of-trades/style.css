@@ -213,3 +213,8 @@
     .board-area{align-items:flex-start; padding-top:1.2em;}
     .side-panel{overflow-y:auto; max-height:calc(100vh - 70px);}
   }
+
+/* host approval of a name-only seat takeover */
+.seat-requests{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;flex-direction:column;gap:8px;padding:12px 14px;background:rgba(36,26,18,.97);color:#f1e6c8;border-top:2px solid #d9a441}
+.seat-request{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seat-request span{flex:1 1 240px}
