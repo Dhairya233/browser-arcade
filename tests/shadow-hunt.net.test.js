@@ -5,7 +5,7 @@ import * as Engine from '../games/shadow-hunt/engine.js';
 import { buildRoom, flush, lastState, wireTo } from './helpers.js';
 
 const seatsOf = n => Array.from({ length: n }, (_, i) => ({ name: 'P' + i, color: null }));
-const MRX_START = 0;
+const PHANTOM_START = 0;
 const DET_STARTS = [10, 20, 30, 40, 44];
 
 // ---- driving a room ----
@@ -15,15 +15,15 @@ async function act(room, seat, action) {
   else room.clients[seat - 1].act(action);
   await flush();
 }
-const mrxSeat = room => viewOf(room, 0).seatOf[0];
+const phantomSeat = room => viewOf(room, 0).seatOf[0];
 const seatOfPlayer = (room, k) => viewOf(room, 0).seatOf[k];
 
 async function startedRoom(n = 4) {
   const room = await buildRoom(n, { game, start: true });
-  // everyone picks a start: the fugitive on MRX_START, detectives on distinct stations
+  // everyone picks a start: the fugitive on PHANTOM_START, detectives on distinct stations
   for (let k = 0; k < n; k++) {
     const seat = seatOfPlayer(room, k);
-    await act(room, seat, { cmd: 'startPick', pos: k === 0 ? MRX_START : DET_STARTS[k - 1] });
+    await act(room, seat, { cmd: 'startPick', pos: k === 0 ? PHANTOM_START : DET_STARTS[k - 1] });
   }
   return room;
 }
@@ -36,8 +36,8 @@ async function playOne(room, { prefer } = {}) {
   // The fugitive steps somewhere no detective can reach this round; detectives wander from the far end
   // of their list. That keeps a test game alive long enough to pass several reveal rounds.
   let m;
-  if (v.players[v.me].isMrX) {
-    const danger = new Set(v.players.filter(p => !p.isMrX).flatMap(p => MAP.adj[p.pos].map(o => o.to)));
+  if (v.players[v.me].isPhantom) {
+    const danger = new Set(v.players.filter(p => !p.isPhantom).flatMap(p => MAP.adj[p.pos].map(o => o.to)));
     m = (prefer && moves.find(prefer)) || moves.find(o => !danger.has(o.to)) || moves[0];
   } else m = (prefer && moves.find(prefer)) || moves[moves.length - 1];
   await act(room, seat, { cmd: 'move', to: m.to, type: m.type });
@@ -59,7 +59,7 @@ test('an injected rng makes the draw repeatable (tests only)', () => {
   const a = game.start(seatsOf(5), { maxRounds: 24 }, Engine.seededRand(7));
   const b = game.start(seatsOf(5), { maxRounds: 24 }, Engine.seededRand(7));
   assert.deepEqual(a.seatOf, b.seatOf);
-  assert.equal(a.players[0].isMrX, true);
+  assert.equal(a.players[0].isPhantom, true);
   assert.deepEqual([...a.seatOf].sort(), [0, 1, 2, 3, 4]);
 });
 
@@ -67,7 +67,7 @@ test('an injected rng makes the draw repeatable (tests only)', () => {
 
 test('during setup you see only your own start', async () => {
   const room = await buildRoom(4, { game, start: true });
-  const fSeat = mrxSeat(room);
+  const fSeat = phantomSeat(room);
   await act(room, fSeat, { cmd: 'startPick', pos: 5 });
   const other = [0, 1, 2, 3].find(s => s !== fSeat);
   await act(room, other, { cmd: 'startPick', pos: 12 });
@@ -78,20 +78,20 @@ test('during setup you see only your own start', async () => {
       else assert.equal(p.pos, null, `seat ${s} must not see player ${k}'s start`);
     });
   }
-  assert.equal(viewOf(room, other).players.find(p => p.isMrX).picked, true, 'but everyone can see who has picked');
+  assert.equal(viewOf(room, other).players.find(p => p.isPhantom).picked, true, 'but everyone can see who has picked');
 });
 
 test('nobody but the fugitive ever receives his position or secret tickets (whole game, every message)', async () => {
   const room = await startedRoom(4);
-  const fSeat = mrxSeat(room);
+  const fSeat = phantomSeat(room);
   for (let i = 0; i < 40 && !viewOf(room, 0).gameOver; i++) await playOne(room);
   assert.ok(viewOf(room, 0).round > 3, 'played past the first reveal round');
   let checked = 0;
   for (let s = 0; s < 4; s++) {
     if (s === fSeat) continue;
     for (const v of allStateMessages(room, s)) {
-      const x = v.players.find(p => p.isMrX);
-      if (!v.mrxVisible && !v.gameOver) assert.equal(x.pos, null, `seat ${s} saw the fugitive's position`);
+      const x = v.players.find(p => p.isPhantom);
+      if (!v.phantomVisible && !v.gameOver) assert.equal(x.pos, null, `seat ${s} saw the fugitive's position`);
       if (!v.gameOver) { assert.equal(x.tickets.black, null); assert.equal(x.tickets.double, null); }
       checked++;
     }
@@ -102,16 +102,16 @@ test('nobody but the fugitive ever receives his position or secret tickets (whol
   const frames = room.clients[det - 1].log.endpoint.peer.sent.map(x => JSON.parse(x)).filter(m => m.t === 'state');
   assert.ok(frames.length > 20);
   for (const m of frames) {
-    const x = m.view.players.find(p => p.isMrX);
-    assert.ok(m.view.gameOver || m.view.mrxVisible || x.pos === null);
+    const x = m.view.players.find(p => p.isPhantom);
+    assert.ok(m.view.gameOver || m.view.phantomVisible || x.pos === null);
   }
 });
 
 test('the fugitive sees his own position and tickets', async () => {
   const room = await startedRoom(4);
-  const v = viewOf(room, mrxSeat(room));
-  const x = v.players.find(p => p.isMrX);
-  assert.equal(x.pos, MRX_START);
+  const v = viewOf(room, phantomSeat(room));
+  const x = v.players.find(p => p.isPhantom);
+  assert.equal(x.pos, PHANTOM_START);
   assert.equal(x.tickets.black, 5);
   assert.equal(x.tickets.double, 2);
 });
@@ -185,7 +185,7 @@ test('setup: a forged playerIdx in the message is ignored', () => {
 
 test('setup: a detective who starts on the fugitive wins at once', async () => {
   const room = await buildRoom(3, { game, start: true });
-  const f = mrxSeat(room);
+  const f = phantomSeat(room);
   const dets = [0, 1, 2].filter(s => s !== f);
   await act(room, f, { cmd: 'startPick', pos: 7 });
   await act(room, dets[0], { cmd: 'startPick', pos: 7 });
@@ -212,7 +212,7 @@ test('moves: only the player whose turn it is, to an adjacent station, with a ma
   const other = [0, 1, 2, 3].find(s => s !== turnSeat);
   const fView = viewOf(room, turnSeat);
   const legal = Engine.validMoves(fView, MAP, fView.me);
-  const nonAdj = MAP.stations.find(st => st.id !== MRX_START && !MAP.adj[MRX_START].some(o => o.to === st.id)).id;
+  const nonAdj = MAP.stations.find(st => st.id !== PHANTOM_START && !MAP.adj[PHANTOM_START].some(o => o.to === st.id)).id;
   const ok = legal[0];
 
   const before = JSON.stringify(viewOf(room, 0));
@@ -301,7 +301,7 @@ test('black ticket: only the fugitive, only if he has one, and it hides the tran
   assert.equal(game.validate(s, f, { cmd: 'move', to: mv.to, isBlack: true }), true, 'type may be left out for a black ticket');
   s = game.apply(s, f, { cmd: 'move', to: mv.to, isBlack: true }).state;
   assert.equal(s.players[0].tickets.black, 0);
-  assert.equal(s.mrXHistory.at(-1).type, 'black');
+  assert.equal(s.phantomHistory.at(-1).type, 'black');
 });
 
 test('a detective cannot move onto another detective', () => {
@@ -318,7 +318,7 @@ test('nothing is accepted once the game is over', () => {
   let s = game.start(seatsOf(3), { maxRounds: 24 }, Engine.seededRand(10));
   s.startingPhase = false; delete s.startPickIdx;
   s.players.forEach((p, k) => { p.pos = [0, 10, 20][k]; });
-  s.gameOver = true; s.winner = 'mrx';
+  s.gameOver = true; s.winner = 'phantom';
   for (const q of s.seatOf) assert.equal(game.validate(s, q, { cmd: 'startDouble' }), false);
 });
 
@@ -339,6 +339,6 @@ test('a full online game plays to a result with the chosen number of rounds', as
   const v = viewOf(room, 0);
   assert.equal(v.gameOver, true);
   assert.equal(v.maxRounds, 12);
-  assert.ok(['mrx', 'detectives'].includes(v.winner));
+  assert.ok(['phantom', 'detectives'].includes(v.winner));
   for (let s = 0; s < 3; s++) assert.equal(viewOf(room, s).gameOver, true);
 });

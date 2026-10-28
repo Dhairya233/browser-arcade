@@ -67,11 +67,11 @@ test('reveal rounds expose the fugitive for that round only', () => {
   g.round = 3;
   const m = E.validMoves(g, map, 0)[0];
   let r = E.applyAction(g, map, { cmd: 'move', playerIdx: 0, to: m.to, type: m.type });
-  assert.equal(r.state.mrxVisible, true);
+  assert.equal(r.state.phantomVisible, true);
   assert.equal(r.state.players[0].revealedPos, m.to);
   const g2 = started(); g2.round = 4;
   r = E.applyAction(g2, map, { cmd: 'move', playerIdx: 0, to: m.to, type: m.type });
-  assert.equal(r.state.mrxVisible, false);
+  assert.equal(r.state.phantomVisible, false);
   assert.equal(r.state.players[0].revealedPos, null);
 });
 
@@ -94,7 +94,7 @@ test('surviving every round makes the fugitive win', () => {
     const m = E.validMoves(s, map, idx).find(o => !s.players.some((p, i) => i !== idx && p.pos === o.to));
     s = E.applyAction(s, map, { cmd: 'move', playerIdx: idx, to: m.to, type: m.type }).state;
   }
-  assert.equal(s.winner, 'mrx');
+  assert.equal(s.winner, 'phantom');
 });
 
 test('double move: two fugitive moves in one turn, one double ticket spent', () => {
@@ -116,7 +116,7 @@ test('black ticket hides the transport type in the history but spends a black ti
   const m = E.validMoves(g, map, 0)[0];
   const r = E.applyAction(g, map, { cmd: 'move', playerIdx: 0, to: m.to, type: m.type, isBlack: true });
   assert.equal(r.state.players[0].tickets.black, 4);
-  assert.equal(r.state.mrXHistory.at(-1).type, 'black');
+  assert.equal(r.state.phantomHistory.at(-1).type, 'black');
 });
 
 test('a detective cannot move onto another detective, or with a ticket type they have run out of', () => {
