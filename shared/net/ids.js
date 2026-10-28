@@ -8,6 +8,12 @@ function randomBytes(n) {
   return a;
 }
 
+// A random number in [0, 1) from the browser's secure generator. Use this, not Math.random,
+// when a guess would give something away (for example who gets a secret role).
+export function secureRandom() {
+  return new Uint32Array(randomBytes(4).buffer)[0] / 4294967296;
+}
+
 // A 5-character room code. `rng` (optional) returns numbers in [0, 1) for deterministic tests.
 export function makeCode(rng) {
   if (rng) return Array.from({ length: 5 }, () => CODE_CHARS[Math.floor(rng() * CODE_CHARS.length)]).join('');
