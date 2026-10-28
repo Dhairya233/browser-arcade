@@ -623,6 +623,9 @@ function cleanBag(o){
 
 function validate(seat,a,ds,p){
   if(seat==null) return true;               // pass-and-play: the UI already gates everything
+  const hasVertex=id=>typeof id==='string' && state.board.vertices.some(v=>v.id===id);
+  const hasEdge=id=>typeof id==='string' && state.board.edges.some(e=>e.id===id);
+  const hasTile=id=>typeof id==='string' && state.board.tiles.some(t=>t.id===id);
   const S=state, pt=!!(S.pendingTrade&&S.pendingTrade.status==='pending');
   if(S.phase==='gameover') return false;
   if(a==='respondTrade') return pt && S.pendingTrade.toIdx===seat;
@@ -635,10 +638,10 @@ function validate(seat,a,ds,p){
     case 'startBuildRoad': case 'startBuildSettlement': case 'startBuildCity': case 'buyDevCard': case 'openTradeChooser': case 'endTurn': return turn && idle && rolled;
     case 'playDevCard': return turn && idle;
     case 'cancelBuild': return ['build-road','build-settlement','build-city'].includes(S.uiMode);
-    case 'clickVertexSettlement': return isVertexBuildableSettlement(ds.vertexId);
-    case 'clickVertexCity': return isVertexBuildableCity(ds.vertexId);
-    case 'clickEdge': return isEdgeBuildable(ds.edgeId);
-    case 'clickTile': return S.uiMode==='move-robber';
+    case 'clickVertexSettlement': return hasVertex(ds.vertexId) && isVertexBuildableSettlement(ds.vertexId);
+    case 'clickVertexCity': return hasVertex(ds.vertexId) && isVertexBuildableCity(ds.vertexId);
+    case 'clickEdge': return hasEdge(ds.edgeId) && isEdgeBuildable(ds.edgeId);
+    case 'clickTile': return S.uiMode==='move-robber' && hasTile(ds.tileId);
     case 'setUiMode': return ['idle','trade-bank','trade-build'].includes(ds.mode) && S.uiMode.startsWith('trade');
     case 'sendTrade': return S.uiMode==='trade-build';
     case 'confirmBankTrade': return S.uiMode==='trade-bank';
