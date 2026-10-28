@@ -96,20 +96,20 @@ export function buildMap(rnd) {
 
 /* ---------- state ---------- */
 
-// Player 0 is the fugitive (Mister X in the original rules); everyone else is a detective.
+// Player 0 is the fugitive, The Phantom; everyone else is a detective.
 export function newGame(playerNames, maxRounds) {
   maxRounds = maxRounds || 24;
   const players = playerNames.map((nm, i) => ({
-    name: nm, isMrX: i === 0, pos: null,
+    name: nm, isPhantom: i === 0, pos: null,
     color: i === 0 ? '#111' : COLORS[(i - 1) % COLORS.length],
     tickets: i === 0 ? { taxi: 999, bus: 999, underground: 999, black: 5, double: 2 } : { taxi: 10, bus: 8, underground: 4 },
     revealedPos: null
   }));
   return {
     players, round: 1, turn: 1,
-    log: ["The game begins. Mister X slips into the crowd..."],
-    mrXHistory: [], gameOver: false, winner: null,
-    doubleMovePending: false, mrxVisible: false,
+    log: ["The game begins. The Phantom slips into the crowd..."],
+    phantomHistory: [], gameOver: false, winner: null,
+    doubleMovePending: false, phantomVisible: false,
     startingPhase: true, startPickIdx: 0,
     maxRounds
   };
@@ -126,9 +126,9 @@ export function validMoves(G, map, playerIdx) {
   const p = G.players[playerIdx];
   if (p.pos === null || p.pos === undefined) return [];
   let opts = map.adj[p.pos];
-  const occupied = G.players.filter((pl, i) => i !== playerIdx && !pl.isMrX && pl.pos !== null).map(pl => pl.pos);
+  const occupied = G.players.filter((pl, i) => i !== playerIdx && !pl.isPhantom && pl.pos !== null).map(pl => pl.pos);
   opts = opts.filter(o => !occupied.includes(o.to));
-  if (!p.isMrX) { opts = opts.filter(o => p.tickets[o.type] > 0); }
+  if (!p.isPhantom) { opts = opts.filter(o => p.tickets[o.type] > 0); }
   return opts;
 }
 
@@ -138,8 +138,8 @@ export function takenStartPositions(G) {
   const currentPicker = G.players[G.startPickIdx];
   return G.players.filter((pl, i) => {
     if (i >= G.startPickIdx) return false;
-    if (pl.isMrX) return false;
-    if (currentPicker.isMrX) return false;
+    if (pl.isPhantom) return false;
+    if (currentPicker.isPhantom) return false;
     return true;
   }).map(pl => pl.pos).filter(p => p !== null);
 }
@@ -152,24 +152,24 @@ function doMove(G, map, playerIdx, to, type, isBlack) {
   const stations = map.stations;
   const p = G.players[playerIdx];
   p.pos = to;
-  if (p.isMrX) {
+  if (p.isPhantom) {
     if (isBlack) p.tickets.black--; else p.tickets[type]--;
-    G.mrXHistory.push({ round: G.round, type: isBlack ? 'black' : type });
+    G.phantomHistory.push({ round: G.round, type: isBlack ? 'black' : type });
     if (isRevealRound(G.round)) {
-      p.revealedPos = to; G.mrxVisible = true;
-      addLog(G, `Round ${G.round}: Mister X travels by ${isBlack ? 'black ticket' : type}. He is spotted at ${stations[to].name}!`);
+      p.revealedPos = to; G.phantomVisible = true;
+      addLog(G, `Round ${G.round}: The Phantom travels by ${isBlack ? 'black ticket' : type}. He is spotted at ${stations[to].name}!`);
     } else {
-      G.mrxVisible = false;
-      addLog(G, `Round ${G.round}: Mister X travels by ${isBlack ? 'black ticket' : type}.`);
+      G.phantomVisible = false;
+      addLog(G, `Round ${G.round}: The Phantom travels by ${isBlack ? 'black ticket' : type}.`);
     }
-    const caughtBy = G.players.find(pl => !pl.isMrX && pl.pos === to);
-    if (caughtBy) { G.gameOver = true; G.winner = 'detectives'; G.mrxVisible = true; addLog(G, `🚨 Mister X walked into ${caughtBy.name}! Detectives win!`); }
+    const caughtBy = G.players.find(pl => !pl.isPhantom && pl.pos === to);
+    if (caughtBy) { G.gameOver = true; G.winner = 'detectives'; G.phantomVisible = true; addLog(G, `🚨 The Phantom walked into ${caughtBy.name}! Detectives win!`); }
   } else {
     p.tickets[type]--;
-    const mrx = G.players.find(pl => pl.isMrX);
-    mrx.tickets[type]++;
+    const phantom = G.players.find(pl => pl.isPhantom);
+    phantom.tickets[type]++;
     addLog(G, `${p.name} travels to ${stations[to].name} by ${type}.`);
-    if (mrx.pos === to) { G.gameOver = true; G.winner = 'detectives'; G.mrxVisible = true; addLog(G, `🚨 ${p.name} has captured Mister X at ${stations[to].name}! Detectives win!`); }
+    if (phantom.pos === to) { G.gameOver = true; G.winner = 'detectives'; G.phantomVisible = true; addLog(G, `🚨 ${p.name} has captured The Phantom at ${stations[to].name}! Detectives win!`); }
   }
 }
 
@@ -177,12 +177,12 @@ function nextTurn(G, map) {
   if (G.gameOver) return;
   G.turn++;
   if (G.turn > G.players.length) { G.turn = 1; G.round++; }
-  if (G.round > G.maxRounds) { G.gameOver = true; G.winner = 'mrx'; addLog(G, `🕶️ Mister X evaded capture for ${G.maxRounds} rounds. Mister X wins!`); }
-  if (!G.gameOver && !currentPlayer(G).isMrX) {
+  if (G.round > G.maxRounds) { G.gameOver = true; G.winner = 'phantom'; addLog(G, `🕶️ The Phantom evaded capture for ${G.maxRounds} rounds. The Phantom wins!`); }
+  if (!G.gameOver && !currentPlayer(G).isPhantom) {
     if (validMoves(G, map, G.turn - 1).length === 0) {
       addLog(G, `${currentPlayer(G).name} has no valid moves and forfeits this turn.`);
-      const allStuck = G.players.every((p, i) => p.isMrX || validMoves(G, map, i).length === 0);
-      if (allStuck) { G.gameOver = true; G.winner = 'mrx'; addLog(G, 'All detectives are stuck! Mister X wins!'); return; }
+      const allStuck = G.players.every((p, i) => p.isPhantom || validMoves(G, map, i).length === 0);
+      if (allStuck) { G.gameOver = true; G.winner = 'phantom'; addLog(G, 'All detectives are stuck! The Phantom wins!'); return; }
       nextTurn(G, map);
     }
   }
@@ -217,9 +217,9 @@ export function applyAction(G, map, action) {
     const cp = s.players[playerIdx];
     doMove(s, map, playerIdx, to, type, isBlack);
     if (s.gameOver) { s.doubleFirstDone = false; s.doubleMovePending = false; return { state: s, handled: true, turnAdvanced: true }; }
-    if (cp.isMrX && s.doubleMovePending && !s.doubleFirstDone) {
+    if (cp.isPhantom && s.doubleMovePending && !s.doubleFirstDone) {
       s.doubleFirstDone = true; cp.tickets.double--;
-      addLog(s, 'Mister X uses a Double Move ticket.');
+      addLog(s, 'The Phantom uses a Double Move ticket.');
       return { state: s, handled: true, turnAdvanced: false };
     }
     s.doubleFirstDone = false; s.doubleMovePending = false;
@@ -244,11 +244,11 @@ export function pickStartLocal(G, pos) {
 
 // Pass-and-play only: if a detective picked the fugitive's square, the detectives win at once.
 export function checkStartCollision(G, map) {
-  const mrx = G.players.find(p => p.isMrX);
-  const collision = G.players.find(p => !p.isMrX && p.pos === mrx.pos);
+  const phantom = G.players.find(p => p.isPhantom);
+  const collision = G.players.find(p => !p.isPhantom && p.pos === phantom.pos);
   if (!collision) return G;
   const s = structuredClone(G);
-  s.gameOver = true; s.winner = 'detectives'; s.mrxVisible = true;
-  addLog(s, `🚨 ${collision.name} started on the same square as Mister X at ${map.stations[mrx.pos].name}! Detectives win!`);
+  s.gameOver = true; s.winner = 'detectives'; s.phantomVisible = true;
+  addLog(s, `🚨 ${collision.name} started on the same square as The Phantom at ${map.stations[phantom.pos].name}! Detectives win!`);
   return s;
 }

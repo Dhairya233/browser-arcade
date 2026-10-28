@@ -21,7 +21,7 @@ function stationRingColor(id){
 
 /* ---------- game state ---------- */
 let G=null;
-let ME={idx:0,isHost:false,online:false,roomCode:null};   // idx: which game player (0 = Mister X) is on this screen
+let ME={idx:0,isHost:false,online:false,roomCode:null};   // idx: which game player (0 = The Phantom) is on this screen
 let mapFitted=false;
 
 // Names come from other people's keyboards. Anything put into innerHTML goes through esc().
@@ -40,8 +40,8 @@ function afterTurnAdvance(){
 function showPassGate(){
   const cp=currentPlayer();
   document.getElementById('gateBox').innerHTML = `
-    <h2>${cp.isMrX?"🕶️ Mister X's turn":'🔎 '+esc(cp.name)+"'s turn"}</h2>
-    <p>${cp.isMrX? 'Everyone else look away. Pass the device to whoever is playing Mister X.' : 'Pass the device to '+esc(cp.name)+'.'}</p>
+    <h2>${cp.isPhantom?"🕶️ The Phantom's turn":'🔎 '+esc(cp.name)+"'s turn"}</h2>
+    <p>${cp.isPhantom? 'Everyone else look away. Pass the device to whoever is playing The Phantom.' : 'Pass the device to '+esc(cp.name)+'.'}</p>
     <button class="primary" onclick="closeGate()">I'm ready — show my move</button>`;
   document.getElementById('gateBg').classList.add('active');
 }
@@ -58,8 +58,8 @@ function showStartPickGate(){
   const p=G.players[G.startPickIdx];
   startPickSelected=null;
   document.getElementById('gateBox').innerHTML=`
-    <h2>${p.isMrX?'🕶️ Mister X':'🔎 '+esc(p.name)}</h2>
-    <p style="color:var(--muted)">Everyone else look away.<br>${p.isMrX?'Mister X':'Detective '+esc(p.name)}, tap the button below, then secretly pick your starting station on the map.</p>
+    <h2>${p.isPhantom?'🕶️ The Phantom':'🔎 '+esc(p.name)}</h2>
+    <p style="color:var(--muted)">Everyone else look away.<br>${p.isPhantom?'The Phantom':'Detective '+esc(p.name)}, tap the button below, then secretly pick your starting station on the map.</p>
     <button class="primary" onclick="openStartPick()">I'm ready — pick my start</button>`;
   document.getElementById('gateBg').classList.add('active');
 }
@@ -77,11 +77,11 @@ function renderStartPickMode(){
   // Show instruction in action panel
   document.getElementById('actionBody').innerHTML=`
     <div style="font-family:sans-serif">
-      <div style="color:var(--gold);font-weight:bold;margin-bottom:6px">${p.isMrX?'🕶️ Mister X':'🔎 '+esc(p.name)}: pick your starting station</div>
+      <div style="color:var(--gold);font-weight:bold;margin-bottom:6px">${p.isPhantom?'🕶️ The Phantom':'🔎 '+esc(p.name)}: pick your starting station</div>
       <div style="color:var(--muted);font-size:.85em;margin-bottom:10px">Tap any station on the map to select it. Your choice stays secret until the game begins.</div>
       <div id="startPickConfirm"></div>
     </div>`;
-  document.getElementById('turnLabel').textContent = (p.isMrX?'Mister X':''+p.name)+' is choosing a start...';
+  document.getElementById('turnLabel').textContent = (p.isPhantom?'The Phantom':''+p.name)+' is choosing a start...';
   document.getElementById('roundBadge').textContent='Setup';
 }
 
@@ -165,7 +165,7 @@ function showStartRevealGate(){
 
 function beginGameFromStartPick(){
   document.getElementById('gateBg').classList.remove('active');
-  // Check if any detective accidentally chose MrX's starting square
+  // Check if any detective accidentally chose Phantom's starting square
   G=Engine.checkStartCollision(G,MAP);
   if(G.gameOver){
     render();
@@ -176,7 +176,7 @@ function beginGameFromStartPick(){
 }
 
 /* ---------- online play (shared netcode in shared/net/) ---------- */
-const PEER_PREFIX='sy-';
+const PEER_PREFIX='shadow-hunt-';
 const tokens=createTokenStore('shadow-hunt');
 let NET={host:null,client:null,transport:null};
 let ONLINE=null;            // who is connected right now, from the host
@@ -243,7 +243,7 @@ function hostUpdate(host,snap){
 }
 function setRounds(){ if(NET.host) NET.host.setSetting('maxRounds',+document.getElementById('lobbyMaxRounds').value); }
 function hostStartGame(){
-  if(!NET.host || !NET.host.startGame()) alert('Need at least 3 players (1 Mister X + 2 detectives).');
+  if(!NET.host || !NET.host.startGame()) alert('Need at least 3 players (1 Phantom + 2 detectives).');
 }
 
 /* ---- player ---- */
@@ -316,7 +316,7 @@ function buildLocalRoster(){
   const n=+document.getElementById('localCount').value;
   let html='';
   for(let i=0;i<n;i++){
-    html+=`<div class="playerRow"><div class="dot" style="background:${i===0?'#111':COLORS[(i-1)%COLORS.length]}"></div><input style="flex:1" id="lp${i}" placeholder="${i===0?'Mister X player name':'Detective '+i+' name'}" value="${i===0?'Mister X':'Detective '+i}"></div>`;
+    html+=`<div class="playerRow"><div class="dot" style="background:${i===0?'#111':COLORS[(i-1)%COLORS.length]}"></div><input style="flex:1" id="lp${i}" placeholder="${i===0?'Phantom player name':'Detective '+i+' name'}" value="${i===0?'The Phantom':'Detective '+i}"></div>`;
   }
   document.getElementById('localRoster').innerHTML=html;
 }
@@ -354,14 +354,14 @@ function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.re
 function openHowTo(){
   document.getElementById('modalContent').innerHTML=`<h2>📖 How to Play</h2>
   <div class="htpGrid">
-    <div class="htpCard"><div class="htpIcon">🕵️</div><h4>Goal</h4><p>One secret player is <b>Mister X</b>. Everyone else is a detective trying to catch him.</p></div>
+    <div class="htpCard"><div class="htpIcon">🕵️</div><h4>Goal</h4><p>One secret player is <b>The Phantom</b>. Everyone else is a detective trying to catch him.</p></div>
     <div class="htpCard"><div class="htpIcon">🗺️</div><h4>The Map</h4><p>Stations link by taxi, bus & underground. Use the ➕➖⤢ buttons to zoom, or drag to pan.</p></div>
-    <div class="htpCard"><div class="htpIcon">🎫</div><h4>Tickets</h4><p>Every move spends a ticket. A detective's used ticket is handed straight to Mister X!</p></div>
-    <div class="htpCard"><div class="htpIcon">🕶️</div><h4>Mister X's Secrets</h4><p><b>Black</b> tickets hide which transport he used. <b>Double</b> tickets let him move twice in one turn.</p></div>
-    <div class="htpCard"><div class="htpIcon">👁️</div><h4>Visibility</h4><p>Mister X is invisible — except on reveal rounds (${REVEAL_ROUNDS.join(', ')}), when he's spotted for that one round only, then vanishes again.</p></div>
-    <div class="htpCard"><div class="htpIcon">🔄</div><h4>Turn Order</h4><p>Mister X moves first each round, then every detective moves once, in order.</p></div>
-    <div class="htpCard"><div class="htpIcon">📱</div><h4>Same Device</h4><p>Playing on one device? You'll pass it between turns so nobody peeks at Mister X's secret moves.</p></div>
-    <div class="htpCard"><div class="htpIcon">🏆</div><h4>Winning</h4><p>Detectives win by landing exactly on Mister X. He wins by surviving all the rounds, or stranding everyone.</p></div>
+    <div class="htpCard"><div class="htpIcon">🎫</div><h4>Tickets</h4><p>Every move spends a ticket. A detective's used ticket is handed straight to The Phantom!</p></div>
+    <div class="htpCard"><div class="htpIcon">🕶️</div><h4>The Phantom's Secrets</h4><p><b>Black</b> tickets hide which transport he used. <b>Double</b> tickets let him move twice in one turn.</p></div>
+    <div class="htpCard"><div class="htpIcon">👁️</div><h4>Visibility</h4><p>The Phantom is invisible — except on reveal rounds (${REVEAL_ROUNDS.join(', ')}), when he's spotted for that one round only, then vanishes again.</p></div>
+    <div class="htpCard"><div class="htpIcon">🔄</div><h4>Turn Order</h4><p>The Phantom moves first each round, then every detective moves once, in order.</p></div>
+    <div class="htpCard"><div class="htpIcon">📱</div><h4>Same Device</h4><p>Playing on one device? You'll pass it between turns so nobody peeks at The Phantom's secret moves.</p></div>
+    <div class="htpCard"><div class="htpIcon">🏆</div><h4>Winning</h4><p>Detectives win by landing exactly on The Phantom. He wins by surviving all the rounds, or stranding everyone.</p></div>
   </div>
   <div class="legendRow">
     <span class="legItem"><span class="legSwatch" style="background:var(--taxi)"></span>🚕 Taxi — short hops</span>
@@ -392,21 +392,21 @@ function render(){
   document.getElementById('roundBadge').textContent='Round '+Math.min(G.round,G.maxRounds)+' / '+G.maxRounds;
   const cp = G.gameOver ? (G.players[0]) : currentPlayer();
   const myTurn = ME.online ? (ME.idx===G.turn-1) : true;
-  document.getElementById('turnLabel').textContent = G.gameOver? '' : (cp.isMrX?'Mister X is moving...':cp.name+"'s turn");
+  document.getElementById('turnLabel').textContent = G.gameOver? '' : (cp.isPhantom?'The Phantom is moving...':cp.name+"'s turn");
 
-  const mrx=G.players.find(p=>p.isMrX);
-  const lastReveal=[...G.mrXHistory].reverse();
-  let lastKnown = mrx.revealedPos!=null ? stations[mrx.revealedPos].name : 'Unknown';
-  let mrxHtml = `<div style="font-family:sans-serif">${G.mrxVisible?'<span class="badge reveal">SPOTTED NOW</span> ':''}Last known station: <b>${lastKnown}</b></div>`;
-  mrxHtml += `<div class="tickets">Recent tickets: ${lastReveal.slice(0,5).map(h=>h.type).join(', ')||'—'}</div>`;
-  const iAmMrX = ME.online ? (G.players[ME.idx] && G.players[ME.idx].isMrX) : cp.isMrX;
-  if(iAmMrX || G.gameOver){
-    mrxHtml += `<div class="tickets">Black:<span>${mrx.tickets.black}</span>Double:<span>${mrx.tickets.double}</span></div>`;
+  const phantom=G.players.find(p=>p.isPhantom);
+  const lastReveal=[...G.phantomHistory].reverse();
+  let lastKnown = phantom.revealedPos!=null ? stations[phantom.revealedPos].name : 'Unknown';
+  let phantomHtml = `<div style="font-family:sans-serif">${G.phantomVisible?'<span class="badge reveal">SPOTTED NOW</span> ':''}Last known station: <b>${lastKnown}</b></div>`;
+  phantomHtml += `<div class="tickets">Recent tickets: ${lastReveal.slice(0,5).map(h=>h.type).join(', ')||'—'}</div>`;
+  const iAmPhantom = ME.online ? (G.players[ME.idx] && G.players[ME.idx].isPhantom) : cp.isPhantom;
+  if(iAmPhantom || G.gameOver){
+    phantomHtml += `<div class="tickets">Black:<span>${phantom.tickets.black}</span>Double:<span>${phantom.tickets.double}</span></div>`;
   }
-  document.getElementById('mrxPanel').innerHTML=mrxHtml;
+  document.getElementById('phantomPanel').innerHTML=phantomHtml;
 
   const offline=i=>ONLINE && ME.online && ONLINE.connected && ONLINE.connected[G.seatOf[i]]===false;
-  document.getElementById('detPanel').innerHTML = G.players.map((p,i)=>p.isMrX?'':
+  document.getElementById('detPanel').innerHTML = G.players.map((p,i)=>p.isPhantom?'':
     `<div class="playerRow"><div class="dot" style="background:${p.color}"></div><div style="font-family:sans-serif;flex:1"><b>${esc(p.name)}</b>${offline(i)?' <span style="color:var(--muted)">(offline)</span>':''}<div class="tickets">🚕${p.tickets.taxi} 🚌${p.tickets.bus} 🚇${p.tickets.underground}</div></div></div>`).join('');
 
   document.getElementById('log').innerHTML = [...G.log].reverse().map(l=>`<div>${esc(l)}</div>`).join('');
@@ -414,14 +414,14 @@ function render(){
   drawMap((!G.gameOver && myTurn) ? cp : null);
 
   if(G.gameOver){
-    document.getElementById('actionBody').innerHTML = `<div style="font-family:sans-serif;text-align:center;padding:10px"><div style="font-size:2em;margin-bottom:8px">${G.winner==='mrx'?'🕶️':'🚨'}</div><b style="font-size:1.1em">${G.winner==='mrx'?'Mister X wins!':'Detectives win!'}</b><br><div style="color:var(--muted);font-size:.85em;margin:6px 0">${esc(G.log[G.log.length-1]||'')}</div><button style="margin-top:10px" onclick="quitGame()">Back to menu</button></div>`;
+    document.getElementById('actionBody').innerHTML = `<div style="font-family:sans-serif;text-align:center;padding:10px"><div style="font-size:2em;margin-bottom:8px">${G.winner==='phantom'?'🕶️':'🚨'}</div><b style="font-size:1.1em">${G.winner==='phantom'?'The Phantom wins!':'Detectives win!'}</b><br><div style="color:var(--muted);font-size:.85em;margin:6px 0">${esc(G.log[G.log.length-1]||'')}</div><button style="margin-top:10px" onclick="quitGame()">Back to menu</button></div>`;
   } else {
     renderActionPanel(myTurn);
   }
 }
 
 function drawMap(activePlayer){
-  const showMrX = G.gameOver || G.mrxVisible || (activePlayer && activePlayer.isMrX);
+  const showPhantom = G.gameOver || G.phantomVisible || (activePlayer && activePlayer.isPhantom);
   let svg=`<svg viewBox="0 0 ${MAPW} ${MAPH}" xmlns="http://www.w3.org/2000/svg">`;
   svg+=`<defs>
     <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
@@ -450,13 +450,13 @@ function drawMap(activePlayer){
     svg+=`<text x="${s.x}" y="${labelBelow?s.y+28:s.y-19}" font-size="13" class="stationLbl" text-anchor="middle">${EMOJI[s.id]||''} ${s.name}</text>`;
   });
   G.players.forEach((p,i)=>{
-    if(p.isMrX && !showMrX && !(ME.online && i===ME.idx)) return;
+    if(p.isPhantom && !showPhantom && !(ME.online && i===ME.idx)) return;
     if(p.pos===null || p.pos===undefined) return;
     const s=stations[p.pos];
     const offset=(i%3-1)*12;
-    const glow = (p.isMrX && G.mrxVisible) ? ' filter="url(#glowRed)"' : '';
+    const glow = (p.isPhantom && G.phantomVisible) ? ' filter="url(#glowRed)"' : '';
     svg+=`<circle cx="${s.x+offset}" cy="${s.y}" r="12" fill="${p.color}" stroke="#fff" stroke-width="2"${glow}/>`;
-    svg+=`<text x="${s.x+offset}" y="${s.y+4}" class="pieceIcon">${p.isMrX?'X':(G.players.filter(pl=>!pl.isMrX).indexOf(p)+1)}</text>`;
+    svg+=`<text x="${s.x+offset}" y="${s.y+4}" class="pieceIcon">${p.isPhantom?'P':(G.players.filter(pl=>!pl.isPhantom).indexOf(p)+1)}</text>`;
   });
   svg+='</svg>';
   document.getElementById('mapInner').innerHTML=svg;
@@ -481,7 +481,7 @@ function renderActionPanel(myTurn){
   if(G.gameOver) return;
   if(!myTurn){ document.getElementById('actionBody').innerHTML='<div style="font-family:sans-serif;color:var(--muted)">Waiting for '+esc(cp.name)+'...</div>'; return; }
   let html='';
-  if(cp.isMrX){
+  if(cp.isPhantom){
     html+=`<div style="font-family:sans-serif;font-size:.85em;color:var(--muted);margin-bottom:8px">Tap a highlighted station on the map, then choose how you traveled.</div>`;
     if(cp.tickets.double>0 && !G.doubleMovePending){
       html+=`<button class="small" onclick="startDouble()">Use Double Move ticket</button>`;
@@ -506,7 +506,7 @@ function stationClicked(id){
   const types=[...new Set(moves.filter(o=>o.to===id).map(o=>o.type))];
   let html=`<div style="font-family:sans-serif;margin:8px 0">Travel to <b>${stations[id].name}</b> by:</div><div class="row">`;
   types.forEach(t=>{ html+=`<button class="modeBtn" onclick="chooseType('${t}')">${t}</button>`; });
-  if(cp.isMrX) html+=`<button class="modeBtn" onclick="chooseType('${types[0]}',true)">black ticket</button>`;
+  if(cp.isPhantom) html+=`<button class="modeBtn" onclick="chooseType('${types[0]}',true)">black ticket</button>`;
   html+='</div>';
   document.getElementById('modeChooser').innerHTML=html;
   document.getElementById('confirmArea').innerHTML='';
@@ -514,7 +514,7 @@ function stationClicked(id){
 function chooseType(type,isBlack){
   const cp=currentPlayer(); const idx=G.players.indexOf(cp);
   if(isBlack && cp.tickets.black<=0) return;
-  if(!isBlack && cp.isMrX===false && cp.tickets[type]<=0) return;
+  if(!isBlack && cp.isPhantom===false && cp.tickets[type]<=0) return;
   requestAction({cmd:'move',playerIdx:idx,to:selectedTarget,type,isBlack:!!isBlack});
   selectedTarget=null;
 }

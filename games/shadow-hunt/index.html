@@ -1,31 +1,32 @@
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Scotland Yard</title>
+<title>Shadow Hunt</title>
 <script src="../../vendor/peerjs.min.js"></script>
 <link rel="stylesheet" href="style.css"></head>
 <body>
 
 <div id="titleScreen" class="screen active">
-<h1 class="title">🕵️ SCOTLAND YARD</h1>
+<h1 class="title">🕵️ SHADOW HUNT</h1>
 <div class="credit">Made by Dhairya Shah</div>
-<div class="fog">Mister X is loose in London. Detectives, work together — track him down before he vanishes for good.</div>
+<div class="fog">The Phantom is loose in London. Detectives, work together — track him down before he vanishes for good.</div>
 <div class="menu">
 <button class="primary" onclick="show('setupLocal')">▶ Play on this device</button>
 <button onclick="show('setupOnline')">🌐 Play online with friends</button>
 <button onclick="openHowTo()">📖 How to Play</button>
 </div>
+<div class="credit">An independent fan-made game, not affiliated with or endorsed by the makers of any commercial board game.</div>
 </div>
 
 <div id="setupLocal" class="screen">
 <div class="card">
 <h2 style="color:var(--gold);margin-top:0">Same-Device Game</h2>
-<p style="font-family:sans-serif;color:var(--muted);font-size:.88em">Everyone shares this screen. Between turns you'll be asked to pass the device to the next player, so Mister X's moves stay secret.</p>
-<label>Number of players (1 Mr. X + detectives)</label>
+<p style="font-family:sans-serif;color:var(--muted);font-size:.88em">Everyone shares this screen. Between turns you'll be asked to pass the device to the next player, so The Phantom's moves stay secret.</p>
+<label>Number of players (1 Phantom + detectives)</label>
 <select id="localCount" onchange="buildLocalRoster()">
 <option value="3">3 players</option><option value="4">4 players</option><option value="5" selected>5 players</option><option value="6">6 players</option>
 </select>
-<label>Rounds before Mister X wins</label>
+<label>Rounds before The Phantom wins</label>
 <select id="localMaxRounds">
 <option value="12">12 rounds (short game)</option>
 <option value="18">18 rounds (medium game)</option>
@@ -83,7 +84,7 @@
 <p style="font-family:sans-serif;color:var(--muted);font-size:.9em">Waiting for players... Share the room code above. The host starts the game once everyone has joined.</p>
 <div id="lobbyPlayers"></div>
 <div id="lobbyHostSettings" style="display:none">
-<label style="margin-top:12px">Rounds before Mister X wins (host sets this)</label>
+<label style="margin-top:12px">Rounds before The Phantom wins (host sets this)</label>
 <select id="lobbyMaxRounds" onchange="setRounds()">
 <option value="12">12 rounds (short game)</option>
 <option value="18">18 rounds (medium game)</option>
@@ -115,13 +116,13 @@
 <span><i style="background:var(--taxi)"></i>🚕</span>
 <span><i style="background:var(--bus)"></i>🚌</span>
 <span><i style="background:var(--tube)"></i>🚇</span>
-<span>🕶️ Mr.X</span>
+<span>🕶️ The Phantom</span>
 </div>
 </div>
 <div id="mapInner"></div>
 </div>
 <div class="sidebar">
-<div class="panel"><h3>Mister X</h3><div id="mrxPanel"></div></div>
+<div class="panel"><h3>The Phantom</h3><div id="phantomPanel"></div></div>
 <div class="panel"><h3>Detectives</h3><div id="detPanel"></div></div>
 <div class="panel" id="actionPanel"><h3>Your Move</h3><div id="actionBody"></div></div>
 <div class="panel"><h3>Log</h3><div id="log"></div></div>

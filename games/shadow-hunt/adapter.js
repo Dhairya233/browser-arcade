@@ -26,8 +26,8 @@ export function viewFor(state, seat) {
   v.players.forEach((p, k) => {
     p.picked = p.pos !== null;
     if (k === me || v.gameOver) return;
-    if (p.isMrX) {
-      if (!v.mrxVisible) p.pos = null;                       // only shown on a reveal round
+    if (p.isPhantom) {
+      if (!v.phantomVisible) p.pos = null;                       // only shown on a reveal round
       p.tickets.black = null; p.tickets.double = null;       // his secret tickets
     } else if (setup) {
       p.pos = null;                                          // nobody sees a start before the game begins
@@ -46,16 +46,16 @@ function validate(state, seat, a) {
   if (a.cmd === 'startPick') {
     if (!state.startingPhase || me.pos !== null || !isStation(a.pos)) return false;
     // detectives may not start on the same station as another detective
-    return me.isMrX || !state.players.some((q, k) => k !== p && !q.isMrX && q.pos === a.pos);
+    return me.isPhantom || !state.players.some((q, k) => k !== p && !q.isPhantom && q.pos === a.pos);
   }
   if (state.startingPhase || state.turn !== p + 1) return false;
   if (a.cmd === 'startDouble') {
-    return me.isMrX && me.tickets.double > 0 && !state.doubleMovePending && !state.doubleFirstDone;
+    return me.isPhantom && me.tickets.double > 0 && !state.doubleMovePending && !state.doubleFirstDone;
   }
   if (a.cmd === 'move') {
     if (!isStation(a.to) || (a.isBlack !== undefined && typeof a.isBlack !== 'boolean')) return false;
     const moves = Engine.validMoves(state, MAP, p).filter(o => o.to === a.to);
-    if (a.isBlack) return me.isMrX && me.tickets.black > 0 && moves.length > 0;
+    if (a.isBlack) return me.isPhantom && me.tickets.black > 0 && moves.length > 0;
     return MOVE_TYPES.includes(a.type) && moves.some(o => o.type === a.type);
   }
   return false;
