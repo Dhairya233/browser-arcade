@@ -43,7 +43,7 @@
 <div id="setupOnline" class="screen">
 <div class="card">
 <h2 style="color:var(--gold);margin-top:0">Play Online</h2>
-<p style="font-family:sans-serif;color:var(--muted);font-size:.9em">Create a room and share the password with friends, or join a room using a password you were given. This works whether everyone opens the same published link, or each person downloaded and opened their own copy of this file — as long as everyone has an internet connection.</p>
+<p style="font-family:sans-serif;color:var(--muted);font-size:.9em">Create a room and share its code with friends, or join with a code you were given. Everyone needs an internet connection. The host's browser runs the game, so the host has to keep their tab open.</p>
 <div class="row">
 <button class="primary" style="flex:1" onclick="show('createRoomScreen')">Create Room</button>
 <button style="flex:1" onclick="show('joinRoomScreen')">Join Room</button>
@@ -56,8 +56,6 @@
 <div class="card">
 <h2 style="color:var(--gold);margin-top:0">Create Room</h2>
 <label>Your name</label><input id="crName" placeholder="e.g. Dhairya">
-<label>Room password (share this with friends)</label>
-<div class="row"><input id="crCode" placeholder="auto-generated" readonly style="flex:1"><button class="small" onclick="genCode()">🎲</button></div>
 <div class="row" style="margin-top:14px">
 <button onclick="show('setupOnline')">← Back</button>
 <button class="primary" onclick="createRoom()">Create & Enter Lobby</button>
@@ -70,7 +68,7 @@
 <div class="card">
 <h2 style="color:var(--gold);margin-top:0">Join Room</h2>
 <label>Your name</label><input id="jrName" placeholder="e.g. Alex">
-<label>Room password</label><input id="jrCode" placeholder="ROOM CODE" style="text-transform:uppercase">
+<label>Room code</label><input id="jrCode" placeholder="ROOM CODE" style="text-transform:uppercase" maxlength="5" autocomplete="off">
 <div class="row" style="margin-top:14px">
 <button onclick="show('setupOnline')">← Back</button>
 <button class="primary" onclick="joinRoom()">Join Lobby</button>
@@ -81,12 +79,12 @@
 
 <div id="lobbyScreen" class="screen">
 <div class="card">
-<div class="topbar"><h2 style="color:var(--gold);margin:0">Lobby</h2><span class="badge">Password: <span id="lobbyCode"></span></span></div>
-<p style="font-family:sans-serif;color:var(--muted);font-size:.9em">Waiting for players... Share the password above. The host starts the game once everyone has joined.</p>
+<div class="topbar"><h2 style="color:var(--gold);margin:0">Lobby</h2><span class="badge">Room code: <span id="lobbyCode"></span></span></div>
+<p style="font-family:sans-serif;color:var(--muted);font-size:.9em">Waiting for players... Share the room code above. The host starts the game once everyone has joined.</p>
 <div id="lobbyPlayers"></div>
 <div id="lobbyHostSettings" style="display:none">
 <label style="margin-top:12px">Rounds before Mister X wins (host sets this)</label>
-<select id="lobbyMaxRounds">
+<select id="lobbyMaxRounds" onchange="setRounds()">
 <option value="12">12 rounds (short game)</option>
 <option value="18">18 rounds (medium game)</option>
 <option value="24" selected>24 rounds (standard)</option>
@@ -130,6 +128,9 @@
 </div>
 </div>
 </div>
+
+<div id="netBanner" class="netBanner" role="status"></div>
+<div id="seatRequests" class="seatRequests"></div>
 
 <div id="modalBg" class="modalBg"><div class="modal" id="modalContent"></div></div>
 <div id="gateBg" class="gateBg"><div class="gateBox" id="gateBox"></div></div>

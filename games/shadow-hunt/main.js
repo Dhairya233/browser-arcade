@@ -1,9 +1,14 @@
 import * as Engine from './engine.js';
 import { MAPW, MAPH, REVEAL_ROUNDS, COLORS } from './engine.js';
+import { MAP, shadowHuntAdapter } from './adapter.js';
+import { createHost } from '../../shared/net/host.js';
+import { createClient } from '../../shared/net/client.js';
+import { createPeerJsTransport } from '../../shared/net/transport-peerjs.js';
+import { peerOptions } from '../../shared/net/peer-options.js';
+import { createTokenStore } from '../../shared/net/ids.js';
+import { cleanName, describeNetError } from '../../shared/net/protocol.js';
 
-/* Rules and map generation live in engine.js. This file draws the game, handles input and runs the network. */
-const rnd = Engine.seededRand(42);
-const MAP = Engine.buildMap(rnd);
+/* Rules live in engine.js, who-may-see-what in adapter.js, the network in shared/net/. This file draws the game and handles input. */
 const { stations, edges } = MAP;
 const EMOJI=["🕵️","🎭","🌉","🎸","🏛️","🎷","👑","💎","⚽","📚","🎨","🦊","⏰","🎤","🎳","🏉","🎈","🍩","🚂","🔑","👼","⚖️","🎬","📖","🌷","🎡","⛪","🍺","🏺","🧵","🎧","🏟️","🌳","🦉","🏆","🎪","🦌","🎾","🏢","🌼","🚉","⚓","🐕","🧭","🌲"];
 function neighborsAny(stationId){return MAP.adj[stationId];}
@@ -16,27 +21,27 @@ function stationRingColor(id){
 
 /* ---------- game state ---------- */
 let G=null;
-let ME={idx:0,isHost:false,online:false,roomCode:null,name:'You'};
-let NET={mode:null,db:null,doc:null,unsub:null,peer:null,conns:[],hostConn:null};
-let roomData=null;
+let ME={idx:0,isHost:false,online:false,roomCode:null};   // idx: which game player (0 = Mister X) is on this screen
 let mapFitted=false;
 
+// Names come from other people's keyboards. Anything put into innerHTML goes through esc().
+function esc(t){ return String(t).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
 const newGame = Engine.newGame;
-const shuffle = (a) => Engine.shuffle(a, rnd);
 const currentPlayer = () => Engine.currentPlayer(G);
 const validMoves = (playerIdx) => Engine.validMoves(G, MAP, playerIdx);
 const takenStartPositions = () => Engine.takenStartPositions(G);
 
+// Pass-and-play only: online, the host's answer arrives as a new view (see onOnlineState).
 function afterTurnAdvance(){
-  if(G.gameOver){ render(); persistState(); return; }
-  if(!ME.online){ showPassGate(); }
-  else { render(); persistState(); }
+  if(G.gameOver){ render(); return; }
+  showPassGate();
 }
 function showPassGate(){
   const cp=currentPlayer();
   document.getElementById('gateBox').innerHTML = `
-    <h2>${cp.isMrX?"🕶️ Mister X's turn":'🔎 '+cp.name+"'s turn"}</h2>
-    <p>${cp.isMrX? 'Everyone else look away. Pass the device to whoever is playing Mister X.' : 'Pass the device to '+cp.name+'.'}</p>
+    <h2>${cp.isMrX?"🕶️ Mister X's turn":'🔎 '+esc(cp.name)+"'s turn"}</h2>
+    <p>${cp.isMrX? 'Everyone else look away. Pass the device to whoever is playing Mister X.' : 'Pass the device to '+esc(cp.name)+'.'}</p>
     <button class="primary" onclick="closeGate()">I'm ready — show my move</button>`;
   document.getElementById('gateBg').classList.add('active');
 }
@@ -53,8 +58,8 @@ function showStartPickGate(){
   const p=G.players[G.startPickIdx];
   startPickSelected=null;
   document.getElementById('gateBox').innerHTML=`
-    <h2>${p.isMrX?'🕶️ Mister X':'🔎 '+p.name}</h2>
-    <p style="color:var(--muted)">Everyone else look away.<br>${p.isMrX?'Mister X':'Detective '+p.name}, tap the button below, then secretly pick your starting station on the map.</p>
+    <h2>${p.isMrX?'🕶️ Mister X':'🔎 '+esc(p.name)}</h2>
+    <p style="color:var(--muted)">Everyone else look away.<br>${p.isMrX?'Mister X':'Detective '+esc(p.name)}, tap the button below, then secretly pick your starting station on the map.</p>
     <button class="primary" onclick="openStartPick()">I'm ready — pick my start</button>`;
   document.getElementById('gateBg').classList.add('active');
 }
@@ -72,7 +77,7 @@ function renderStartPickMode(){
   // Show instruction in action panel
   document.getElementById('actionBody').innerHTML=`
     <div style="font-family:sans-serif">
-      <div style="color:var(--gold);font-weight:bold;margin-bottom:6px">${p.isMrX?'🕶️ Mister X':'🔎 '+p.name}: pick your starting station</div>
+      <div style="color:var(--gold);font-weight:bold;margin-bottom:6px">${p.isMrX?'🕶️ Mister X':'🔎 '+esc(p.name)}: pick your starting station</div>
       <div style="color:var(--muted);font-size:.85em;margin-bottom:10px">Tap any station on the map to select it. Your choice stays secret until the game begins.</div>
       <div id="startPickConfirm"></div>
     </div>`;
@@ -131,8 +136,8 @@ function startPickClicked(id){
 function confirmStartPosition(){
   if(startPickSelected===null) return;
   if(ME.online){
-    // For online: send pick to host, then show a waiting screen
-    requestAction({cmd:'startPick', playerIdx:G.startPickIdx, pos:startPickSelected});
+    // Online: ask the host. Our screen changes when its answer arrives.
+    requestAction({cmd:'startPick', pos:startPickSelected});
     startPickSelected=null;
     document.getElementById('actionBody').innerHTML=`<div style="font-family:sans-serif;color:var(--muted)">✅ Starting position chosen! Waiting for others to pick...</div>`;
     document.getElementById('mapInner').innerHTML='';
@@ -170,250 +175,140 @@ function beginGameFromStartPick(){
   showPassGate();
 }
 
-function showOnlineStartPick(){
-  // For online play: show the map so this player can pick their start
-  const myPlayer=G.players.find(p=>p.name===ME.name);
-  if(!myPlayer || myPlayer.pos!==null){ render(); return; }
-  G.startPickIdx=G.players.indexOf(myPlayer);
-  startPickSelected=null;
-  renderStartPickMode();
-  document.getElementById('actionBody').innerHTML=`
-    <div style="font-family:sans-serif">
-      <div style="color:var(--gold);font-weight:bold;margin-bottom:6px">Pick your starting station</div>
-      <div style="color:var(--muted);font-size:.85em;margin-bottom:10px">Tap any station on the map. Your choice stays secret until the game begins.</div>
-      <div id="startPickConfirm"></div>
-    </div>`;
-}
+/* ---------- online play (shared netcode in shared/net/) ---------- */
+const PEER_PREFIX='sy-';
+const tokens=createTokenStore('shadow-hunt');
+let NET={host:null,client:null,transport:null};
+let ONLINE=null;            // who is connected right now, from the host
+let pickingStart=false;     // the start-pick screen is open on this device
+let bannerTimer=null;
 
-/* ---------- networking ---------- */
-async function getDB(){
-  if(NET.db) return NET.db;
-  if(!window.claude || !window.claude.use){ return null; }
-  try{ const db = await window.claude.use('db'); return db; }catch(e){ return null; }
+function setBanner(text){
+  const el=document.getElementById('netBanner');
+  el.textContent=text; el.style.display=text?'block':'none';
 }
-async function ensureTransport(){
-  if(NET.mode) return NET.mode;
-  const db=await getDB();
-  if(db){ NET.mode='claudedb'; NET.db=db; }
-  else { NET.mode='peer'; }
-  return NET.mode;
+function flashBanner(text){
+  setBanner(text); clearTimeout(bannerTimer);
+  bannerTimer=setTimeout(()=>setBanner(''),3500);
 }
-const NO_NET_MSG='Could not reach the online relay — check your internet connection and reload the page.';
+function showSeatRequests(reqs){
+  document.getElementById('seatRequests').innerHTML=(reqs||[]).map(r=>
+    `<div class="seatRequest"><span><b>${esc(r.name)}</b> wants to take over <b>${esc(r.seatName)}</b>'s seat. Only allow this if you know who it is.</span><button class="small primary" onclick="approveSeat(${+r.id})">Allow</button><button class="small" onclick="denySeat(${+r.id})">Deny</button></div>`).join('');
+}
+function approveSeat(id){ if(NET.host) NET.host.approve(id); }
+function denySeat(id){ if(NET.host) NET.host.deny(id); }
 
-function handleRoomSnapshot(data){
-  if(!data) return;
-  ME.idx=data.players.findIndex(p=>p.name===ME.name);
-  if(data.phase==='playing' && data.game){
-    if(ME.online){
-      handleRoomSnapshotOnline(data);
-    } else {
-      G=data.game;
-      show('gameScreen');
-      render();
-    }
-  } else {
-    document.getElementById('lobbyCode').textContent = ME.roomCode;
-    document.getElementById('lobbyStartBtn').style.display = ME.isHost?'inline-block':'none';
-    document.getElementById('lobbyHostSettings').style.display = ME.isHost?'block':'none';
-    document.getElementById('lobbyPlayers').innerHTML = data.players.map((p,i)=>
-      `<div class="playerRow"><div class="dot" style="background:${i===0?'#111':COLORS[(i-1)%COLORS.length]}"></div><span style="font-family:sans-serif">${p.name}${p.isHost?' (host)':''}</span></div>`).join('');
-    show('lobbyScreen');
-  }
+// Close whatever is open. Detach first so late callbacks from the old room are ignored.
+function stopNet(){
+  const {host,client,transport}=NET;
+  NET={host:null,client:null,transport:null};
+  if(host) host.close();
+  if(client) client.leave();
+  if(transport && transport.dispose) setTimeout(()=>transport.dispose(),300);
+  ME.online=false; ME.isHost=false; ME.idx=0; ME.roomCode=null;
+  ONLINE=null; pickingStart=false; mapFitted=false;
+  showSeatRequests([]); setBanner('');
 }
+function leaveRoom(){ stopNet(); show('titleScreen'); }
+function quitGame(){ stopNet(); G=null; show('titleScreen'); }
+function netFail(msg,screenId,msgId){
+  stopNet(); G=null; show(screenId); document.getElementById(msgId).textContent=msg;
+}
+function peerReady(msgId){
+  if(typeof Peer==='undefined'){ document.getElementById(msgId).textContent=describeNetError({type:'no-peerjs'}); return false; }
+  return true;
+}
+function makeTransport(){ return createPeerJsTransport({Peer,options:peerOptions(),prefix:PEER_PREFIX}); }
 
-/* --- claude.ai db transport --- */
-function subscribeClaudeDB(doc){
-  NET.doc=doc;
-  if(NET.unsub) NET.unsub();
-  NET.unsub=doc.onSnapshot(snap=>{ if(snap.exists) handleRoomSnapshot(snap.data()); }, err=>console.error(err));
-}
-function pushGameStateClaudeDB(){
-  if(!NET.doc) return;
-  NET.doc.get().then(snap=>{
-    const data=snap.data();
-    data.game=G;
-    NET.doc.set(data);
-  });
-}
-
-/* --- serverless peer-to-peer transport (works for a downloaded/self-hosted copy too) --- */
-function createRoomPeer(name,code){
-  return new Promise((resolve,reject)=>{
-    if(typeof Peer==='undefined'){ reject(new Error('no-peerjs')); return; }
-    const peer=new Peer('sy-'+code);
-    peer.on('open',()=>{
-      NET.peer=peer; NET.conns=[]; ME.isHost=true; ME.online=true; ME.roomCode=code; ME.name=name;
-      roomData={code,phase:'lobby',players:[{name,isHost:true}],game:null,createdAt:Date.now()};
-      peer.on('connection',conn=>{
-        NET.conns.push(conn);
-        conn.on('data',msg=>handleHostMessage(conn,msg));
-        conn.on('close',()=>{ NET.conns=NET.conns.filter(c=>c!==conn); });
-        conn.on('open',()=>{ conn.send({t:'state',data:roomData}); });
-      });
-      resolve();
-    });
-    peer.on('error',err=>{ reject(err); });
-  });
-}
-function joinRoomPeer(name,code){
-  return new Promise((resolve,reject)=>{
-    if(typeof Peer==='undefined'){ reject(new Error('no-peerjs')); return; }
-    const peer=new Peer();
-    let settled=false;
-    peer.on('open',()=>{
-      const conn=peer.connect('sy-'+code,{reliable:true});
-      const timeout=setTimeout(()=>{ if(!settled){settled=true; try{peer.destroy();}catch(e){} reject(new Error('timeout'));} },9000);
-      conn.on('open',()=>{
-        if(settled) return; settled=true; clearTimeout(timeout);
-        NET.peer=peer; NET.hostConn=conn; ME.isHost=false; ME.online=true; ME.roomCode=code; ME.name=name;
-        conn.send({t:'join',name});
-        conn.on('data',msg=>{ if(msg && msg.t==='state') handleRoomSnapshot(msg.data); });
-        resolve();
-      });
-      conn.on('error',e=>{ if(!settled){settled=true; clearTimeout(timeout); reject(e);} });
-    });
-    peer.on('error',err=>{ if(!settled){settled=true; reject(err);} });
-  });
-}
-function handleHostMessage(conn,msg){
-  if(!msg) return;
-  if(msg.t==='join'){
-    if(!roomData.players.find(p=>p._connId===conn.peer)){
-      roomData.players.push({name:msg.name||'Player',isHost:false,_connId:conn.peer});
-    }
-    broadcastState();
-  } else if(msg.t==='action'){
-    performAction(msg.action);
-  }
-}
-function broadcastState(){
-  handleRoomSnapshot(roomData);
-  NET.conns.forEach(c=>{ try{ c.send({t:'state',data:roomData}); }catch(e){} });
-}
-function sendActionToHost(action){
-  if(NET.hostConn){ try{ NET.hostConn.send({t:'action',action}); }catch(e){} }
-}
-function persistState(){
-  if(NET.mode==='claudedb'){ pushGameStateClaudeDB(); }
-  else if(NET.mode==='peer' && ME.isHost && roomData){
-    roomData.game=G;
-    NET.conns.forEach(c=>{ try{ c.send({t:'state',data:roomData}); }catch(e){} });
-  }
-}
-function teardownNet(){
-  if(NET.unsub){ try{NET.unsub();}catch(e){} }
-  if(NET.peer){ try{NET.peer.destroy();}catch(e){} }
-  NET={mode:null,db:null,doc:null,unsub:null,peer:null,conns:[],hostConn:null};
-  roomData=null; ME.online=false; ME.isHost=false; ME.idx=0;
-  mapFitted=false;
-}
-function leaveRoom(){ teardownNet(); show('titleScreen'); }
-function quitGame(){ teardownNet(); G=null; show('titleScreen'); }
-
-/* Room UI actions */
-function genCode(){document.getElementById('crCode').value=Math.random().toString(36).substring(2,7).toUpperCase();}
-genCode();
-
+/* ---- host ---- */
 async function createRoom(){
-  const name=document.getElementById('crName').value.trim()||'Host';
-  let code=(document.getElementById('crCode').value||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
-  if(!code) code=Math.random().toString(36).substring(2,7).toUpperCase();
+  if(!peerReady('crMsg')) return;
+  stopNet();
+  const name=cleanName(document.getElementById('crName').value)||'Host';
   document.getElementById('crMsg').textContent='Connecting…';
-  const mode=await ensureTransport();
-  if(mode==='claudedb'){
-    try{
-      ME.online=true; ME.roomCode=code; ME.isHost=true; ME.name=name;
-      const doc=NET.db.doc('rooms/'+code);
-      await doc.set({code,phase:'lobby',players:[{name,isHost:true}],game:null,createdAt:Date.now()});
-      subscribeClaudeDB(doc);
-      document.getElementById('crMsg').textContent='';
-      show('lobbyScreen');
-    }catch(e){ document.getElementById('crMsg').textContent=NO_NET_MSG; }
-  } else {
-    try{
-      await createRoomPeer(name,code);
-      document.getElementById('crMsg').textContent='';
-      show('lobbyScreen');
-      handleRoomSnapshot(roomData);
-    }catch(e){
-      document.getElementById('crMsg').textContent = (e && e.type==='unavailable-id') ? 'That room code is taken — tap 🎲 for a new one.' : NO_NET_MSG;
-    }
-  }
+  NET.transport=makeTransport();
+  const host=createHost({transport:NET.transport,game:shadowHuntAdapter,name,onUpdate:snap=>hostUpdate(host,snap)});
+  NET.host=host;
+  try{
+    await host.start();
+    if(NET.host===host) document.getElementById('crMsg').textContent='';
+  }catch(err){ if(NET.host===host) netFail(describeNetError(err),'createRoomScreen','crMsg'); }
 }
-async function joinRoom(){
-  const name=document.getElementById('jrName').value.trim()||'Player';
+function hostUpdate(host,snap){
+  if(NET.host!==host) return;
+  ME.online=true; ME.isHost=true; ME.roomCode=snap.code;
+  showSeatRequests(snap.requests);
+  if(snap.phase==='playing') onOnlineState(snap.view,snap.online);
+  else renderLobby(snap.seats,snap.settings.maxRounds,true,snap.code);
+}
+function setRounds(){ if(NET.host) NET.host.setSetting('maxRounds',+document.getElementById('lobbyMaxRounds').value); }
+function hostStartGame(){
+  if(!NET.host || !NET.host.startGame()) alert('Need at least 3 players (1 Mister X + 2 detectives).');
+}
+
+/* ---- player ---- */
+function joinRoom(){
   const code=(document.getElementById('jrCode').value||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
-  if(!code){ document.getElementById('jrMsg').textContent='Enter a room password.'; return; }
+  if(!code){ document.getElementById('jrMsg').textContent='Enter the room code.'; return; }
+  if(!peerReady('jrMsg')) return;
+  stopNet();
+  const name=cleanName(document.getElementById('jrName').value)||'Player';
   document.getElementById('jrMsg').textContent='Connecting…';
-  const mode=await ensureTransport();
-  if(mode==='claudedb'){
-    try{
-      const doc=NET.db.doc('rooms/'+code);
-      let snap; try{ snap=await doc.get(); }catch(e){}
-      if(!snap || !snap.exists){document.getElementById('jrMsg').textContent='Room not found. Check the password.';return;}
-      const data=snap.data();
-      if(data.phase!=='lobby'){document.getElementById('jrMsg').textContent='That game already started.';return;}
-      data.players.push({name,isHost:false});
-      await doc.set(data);
-      ME.online=true; ME.roomCode=code; ME.isHost=false; ME.name=name;
-      subscribeClaudeDB(doc);
-      document.getElementById('jrMsg').textContent='';
-      show('lobbyScreen');
-    }catch(e){ document.getElementById('jrMsg').textContent=NO_NET_MSG; }
-  } else {
-    try{
-      await joinRoomPeer(name,code);
-      document.getElementById('jrMsg').textContent='';
-      show('lobbyScreen');
-    }catch(e){
-      document.getElementById('jrMsg').textContent = 'Room not found, or the host disconnected. Check the password and that the host\'s game is still open.';
-    }
-  }
+  NET.transport=makeTransport();
+  const client=createClient({
+    transport:NET.transport,code,name,token:tokens.getOrCreate(code),
+    onStatus:(st,detail)=>clientStatus(client,st,detail),
+    onLobby:m=>{ if(NET.client!==client) return; ME.online=true; ME.isHost=false; ME.roomCode=code; renderLobby(m.seats,m.settings.maxRounds,false,code); },
+    onState:m=>{ if(NET.client!==client) return; ME.online=true; ME.isHost=false; ME.roomCode=code; onOnlineState(m.view,m.online); },
+    onNack:()=>{ if(NET.client===client) moveRejected(); }
+  });
+  NET.client=client;
+  client.connect();
 }
-async function hostStartGame(){
-  mapFitted=false;
-  const maxRounds=+document.getElementById('lobbyMaxRounds').value||24;
-  if(NET.mode==='claudedb'){
-    const doc=NET.db.doc('rooms/'+ME.roomCode);
-    const snap=await doc.get(); const data=snap.data();
-    if(data.players.length<3){alert('Need at least 3 players (1 Mister X + 2 detectives).');return;}
-    const names=shuffle(data.players.map(p=>p.name));
-    data.players=names.map(n=>({name:n,isHost:n===data.players.find(p=>p.isHost).name}));
-    const game=newGame(names, maxRounds);
-    data.phase='playing'; data.game=game;
-    await doc.set(data);
-  } else if(NET.mode==='peer'){
-    if(roomData.players.length<3){ alert('Need at least 3 players (1 Mister X + 2 detectives).'); return; }
-    const hostName=roomData.players.find(p=>p.isHost).name;
-    const names=shuffle(roomData.players.map(p=>p.name));
-    roomData.players=names.map(n=>({name:n,isHost:n===hostName}));
-    const game=newGame(names, maxRounds);
-    roomData.phase='playing'; roomData.game=game;
-    broadcastState();
-  }
+function clientStatus(client,st,detail){
+  if(NET.client!==client) return;
+  const msg=document.getElementById('jrMsg');
+  if(st==='connecting') msg.textContent='Connecting…';
+  else if(st==='pending') msg.textContent='The host has to approve you taking this seat. Waiting for their answer…';
+  else if(st==='connected'){ msg.textContent=''; setBanner(''); }
+  else if(st==='reconnecting') setBanner('Connection lost. Reconnecting…');
+  else if(st==='host-left') netFail('The host left or lost their connection, so this game cannot continue.','joinRoomScreen','jrMsg');
+  else if(st==='closed') netFail('The host closed the room.','joinRoomScreen','jrMsg');
+  else if(st==='rejected' || st==='failed') netFail(detail,'joinRoomScreen','jrMsg');
 }
-/* For online play: each client picks their own starting position */
-function handleRoomSnapshotOnline(data){
-  if(!data || !data.game) return;
-  G=data.game;
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden && NET.client) NET.client.nudge(); });
+
+/* ---- lobby ---- */
+function renderLobby(seats,maxRounds,isHost,code){
+  document.getElementById('lobbyCode').textContent=code;
+  document.getElementById('lobbyStartBtn').style.display=isHost?'inline-block':'none';
+  document.getElementById('lobbyHostSettings').style.display=isHost?'block':'none';
+  document.getElementById('lobbyMaxRounds').value=String(maxRounds);
+  document.getElementById('lobbyPlayers').innerHTML=seats.map((p,i)=>
+    `<div class="playerRow"><div class="dot" style="background:${p.on?'#43a047':'#777'}"></div><span style="font-family:sans-serif">${esc(p.name)}${i===0?' (host)':''}${p.on?'':' (offline)'}</span></div>`).join('');
+  show('lobbyScreen');
+}
+
+/* ---- in a game ---- */
+// Every update from the host arrives here as this seat's own view of the game.
+function onOnlineState(view,online){
+  G=view; ME.idx=view.me; if(online) ONLINE=online;
   show('gameScreen');
-  if(G.startingPhase){
-    const myPlayer=G.players.find(p=>p.name===ME.name);
-    if(myPlayer && myPlayer.pos===null){
-      // This player still needs to pick
-      G.startPickIdx=G.players.indexOf(myPlayer);
-      showOnlineStartPick();
-    } else {
-      // Already picked — show waiting message
-      document.getElementById('roundBadge').textContent='Setup';
-      document.getElementById('turnLabel').textContent='Waiting for others to choose...';
-      const picked=G.players.filter(p=>p.pos!==null).length;
-      document.getElementById('actionBody').innerHTML=`<div style="font-family:sans-serif;color:var(--muted)">✅ Your starting position is set.<br>${picked} / ${G.players.length} players have chosen. Waiting...</div>`;
-      drawMapForStartPick();
-    }
-  } else {
-    render();
+  if(!G.startingPhase){ pickingStart=false; render(); return; }
+  if(!G.players[ME.idx].picked){
+    if(!pickingStart){ pickingStart=true; startPickSelected=null; renderStartPickMode(); }
+    return;
   }
+  pickingStart=false;
+  document.getElementById('roundBadge').textContent='Setup';
+  document.getElementById('turnLabel').textContent='Waiting for others to choose...';
+  const picked=G.players.filter(p=>p.picked).length;
+  document.getElementById('actionBody').innerHTML=`<div style="font-family:sans-serif;color:var(--muted)">✅ Your starting position is set.<br>${picked} / ${G.players.length} players have chosen. Waiting...</div>`;
+  drawMapForStartPick();
+}
+function moveRejected(){
+  flashBanner('That was not accepted. Please try again.');
+  if(G && G.startingPhase){ pickingStart=false; onOnlineState(G); } else if(G) render();
 }
 
 /* Local setup */
@@ -440,9 +335,11 @@ function startLocalGame(){
 
 /* ---------- action requests ---------- */
 function requestAction(action){
-  if(ME.online && NET.mode==='peer' && !ME.isHost){ sendActionToHost(action); return; }
-  performAction(action);
+  if(!ME.online){ performAction(action); return; }
+  if(NET.host){ if(!NET.host.act(action).ok) moveRejected(); }
+  else if(!NET.client || !NET.client.act(action)) flashBanner('Not connected to the room.');
 }
+// Pass-and-play only.
 function performAction(action){
   if(!G) return;
   const res=Engine.applyAction(G,MAP,action);
@@ -450,7 +347,6 @@ function performAction(action){
   G=res.state;
   if(res.turnAdvanced){ afterTurnAdvance(); return; }
   render();
-  persistState();
 }
 
 /* ---------- rendering ---------- */
@@ -509,15 +405,16 @@ function render(){
   }
   document.getElementById('mrxPanel').innerHTML=mrxHtml;
 
-  document.getElementById('detPanel').innerHTML = G.players.filter(p=>!p.isMrX).map(p=>
-    `<div class="playerRow"><div class="dot" style="background:${p.color}"></div><div style="font-family:sans-serif;flex:1"><b>${p.name}</b><div class="tickets">🚕${p.tickets.taxi} 🚌${p.tickets.bus} 🚇${p.tickets.underground}</div></div></div>`).join('');
+  const offline=i=>ONLINE && ME.online && ONLINE.connected && ONLINE.connected[G.seatOf[i]]===false;
+  document.getElementById('detPanel').innerHTML = G.players.map((p,i)=>p.isMrX?'':
+    `<div class="playerRow"><div class="dot" style="background:${p.color}"></div><div style="font-family:sans-serif;flex:1"><b>${esc(p.name)}</b>${offline(i)?' <span style="color:var(--muted)">(offline)</span>':''}<div class="tickets">🚕${p.tickets.taxi} 🚌${p.tickets.bus} 🚇${p.tickets.underground}</div></div></div>`).join('');
 
-  document.getElementById('log').innerHTML = [...G.log].reverse().map(l=>`<div>${l}</div>`).join('');
+  document.getElementById('log').innerHTML = [...G.log].reverse().map(l=>`<div>${esc(l)}</div>`).join('');
 
   drawMap((!G.gameOver && myTurn) ? cp : null);
 
   if(G.gameOver){
-    document.getElementById('actionBody').innerHTML = `<div style="font-family:sans-serif;text-align:center;padding:10px"><div style="font-size:2em;margin-bottom:8px">${G.winner==='mrx'?'🕶️':'🚨'}</div><b style="font-size:1.1em">${G.winner==='mrx'?'Mister X wins!':'Detectives win!'}</b><br><div style="color:var(--muted);font-size:.85em;margin:6px 0">${G.log[G.log.length-1]||''}</div><button style="margin-top:10px" onclick="quitGame()">Back to menu</button></div>`;
+    document.getElementById('actionBody').innerHTML = `<div style="font-family:sans-serif;text-align:center;padding:10px"><div style="font-size:2em;margin-bottom:8px">${G.winner==='mrx'?'🕶️':'🚨'}</div><b style="font-size:1.1em">${G.winner==='mrx'?'Mister X wins!':'Detectives win!'}</b><br><div style="color:var(--muted);font-size:.85em;margin:6px 0">${esc(G.log[G.log.length-1]||'')}</div><button style="margin-top:10px" onclick="quitGame()">Back to menu</button></div>`;
   } else {
     renderActionPanel(myTurn);
   }
@@ -553,7 +450,7 @@ function drawMap(activePlayer){
     svg+=`<text x="${s.x}" y="${labelBelow?s.y+28:s.y-19}" font-size="13" class="stationLbl" text-anchor="middle">${EMOJI[s.id]||''} ${s.name}</text>`;
   });
   G.players.forEach((p,i)=>{
-    if(p.isMrX && !showMrX) return;
+    if(p.isMrX && !showMrX && !(ME.online && i===ME.idx)) return;
     if(p.pos===null || p.pos===undefined) return;
     const s=stations[p.pos];
     const offset=(i%3-1)*12;
@@ -582,7 +479,7 @@ function applyZoom(){
 function renderActionPanel(myTurn){
   const cp=currentPlayer();
   if(G.gameOver) return;
-  if(!myTurn){ document.getElementById('actionBody').innerHTML='<div style="font-family:sans-serif;color:var(--muted)">Waiting for '+cp.name+'...</div>'; return; }
+  if(!myTurn){ document.getElementById('actionBody').innerHTML='<div style="font-family:sans-serif;color:var(--muted)">Waiting for '+esc(cp.name)+'...</div>'; return; }
   let html='';
   if(cp.isMrX){
     html+=`<div style="font-family:sans-serif;font-size:.85em;color:var(--muted);margin-bottom:8px">Tap a highlighted station on the map, then choose how you traveled.</div>`;
@@ -626,18 +523,20 @@ function chooseType(type,isBlack){
 Object.assign(window, {
   beginGameFromStartPick,
   buildLocalRoster,
+  approveSeat,
   chooseType,
   closeGate,
   closeModal,
   confirmStartPosition,
   createRoom,
-  genCode,
+  denySeat,
   hostStartGame,
   joinRoom,
   leaveRoom,
   openHowTo,
   openStartPick,
   quitGame,
+  setRounds,
   show,
   startDouble,
   startLocalGame,
