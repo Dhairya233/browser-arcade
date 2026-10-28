@@ -707,7 +707,7 @@ function newState(numPlayers, playersInput, opts){
     setup:{order, step:0, subphase:'settlement', pendingVertex:null, deferred:[]},
     turn:{rolled:false, dice:null, devCardPlayedThisTurn:false, discardQueue:[], freeRoads:0},
     longestRoadHolder:null, largestArmyHolder:null, winner:null,
-    log:[`Welcome! ${players.map(p=>p.name).join(', ')} are settling the isle.`],
+    log:[`Welcome! ${players.map(p=>p.name).join(', ')} are out to trade their way across the island.`],
     pendingTrade:null, pendingSteal:null,
     uiMode:'idle', deviceHolder:null
   };

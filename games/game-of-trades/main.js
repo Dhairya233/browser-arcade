@@ -34,7 +34,7 @@ let ui = {screen:'home', sound:true, lobby:null, showRef:false};
 let uiShowRules = false;
 let toastMsg = null;
 let audioCtx = null;
-const PEER_PREFIX = 'settlers-isle-';
+const PEER_PREFIX = 'game-of-trades-';
 // To use your own PeerJS server or a TURN server, see shared/net/peer-options.js.
 const net = {active:false, role:null, code:null, mySeat:null, status:'idle', lobby:null, requests:[], host:null, client:null, transport:null};
 const HIDE_HELP = {
@@ -102,7 +102,7 @@ function cleanName(n){ return String(n||'').replace(/[<>&"'`]/g,'').trim().slice
 /* ============================= PERSISTENCE (single slot, this device only) ============================= */
 function getSavedSummary(){
   try{
-    const raw = localStorage.getItem('si_game');
+    const raw = localStorage.getItem('got_game');
     if(!raw) return null;
     const s = JSON.parse(raw);
     return {players: s.players.map(p=>p.name), phase: s.phase};
@@ -110,11 +110,11 @@ function getSavedSummary(){
 }
 function persistGame(){
   if(net.active) return;
-  try{ localStorage.setItem('si_game', JSON.stringify(state)); }catch(e){}
+  try{ localStorage.setItem('got_game', JSON.stringify(state)); }catch(e){}
 }
 function loadSavedGame(){
   try{
-    const raw = localStorage.getItem('si_game');
+    const raw = localStorage.getItem('got_game');
     if(!raw) return false;
     state = JSON.parse(raw);
     state.deviceHolder = null;
@@ -123,7 +123,7 @@ function loadSavedGame(){
   }catch(e){ return false; }
 }
 function deleteSavedGame(){
-  try{ localStorage.removeItem('si_game'); }catch(e){}
+  try{ localStorage.removeItem('got_game'); }catch(e){}
 }
 
 /* ============================= REQUIRED VIEWER (pass-screen gate) ============================= */
@@ -150,14 +150,15 @@ function renderHome(){
   return `
   <div class="home">
     <div class="hero-emblem">🎲</div>
-    <h1>Settlers' Isle</h1>
-    <p class="tagline">A trading &amp; building game for 3–4 players. Share one screen and pass it around, or host a room and play from your own devices.</p>
+    <h1>Game of Trades</h1>
+    <p class="tagline">A trading &amp; building game for 3 to 8 players. Share one screen and pass it around, or host a room and play from your own devices.</p>
     <div class="home-actions">
       <button class="btn btn-primary btn-lg" data-action="goOnline">🌐 Play Online</button>
       ${summary ? `<button class="btn btn-accent btn-lg" data-action="continueGame">Continue Game</button>` : ''}
       <button class="btn btn-ghost btn-lg" data-action="goLobby">New Local Game</button>
       <button class="btn btn-ghost" data-action="toggleRules">How to Play</button>
     </div>
+    <p class="creator-credit">An independent fan-made game, not affiliated with or endorsed by the makers of any commercial board game.</p>
     ${summary ? `
     <section class="saved-rooms">
       <p>Game in progress: <b>${summary.players.map(escapeHtml).join(', ')}</b>${summary.phase==='gameover'?' — finished':''}</p>
@@ -583,7 +584,7 @@ function renderRulesModal(){
       <div class="rules-header"><h2>How to Play</h2><button class="icon-btn" data-action="toggleRules">✕</button></div>
       <div class="rules-body">
         ${rulesSection('🎯 Goal','Be the first to reach 10 victory points. You earn points from settlements and cities, from holding the Longest Road or Largest Army, and from Victory Point cards.')}
-        ${rulesSection('🗺️ The Board','The isle is 19 hexagon tiles, each producing one resource: 🌲 Lumber, 🧱 Brick, 🪨 Ore, 🌾 Grain, or 🐑 Wool. The desert produces nothing. Every tile has a number from 2–12; when the dice match it, everyone with a settlement or city touching that tile collects.')}
+        ${rulesSection('🗺️ The Board','The island is 19 hexagon tiles (37 when 5 to 8 people play), each producing one resource: 🌲 Lumber, 🧱 Brick, 🪨 Ore, 🌾 Grain, or 🐑 Wool. The desert produces nothing. Every tile has a number from 2–12; when the dice match it, everyone with a settlement or city touching that tile collects.')}
         ${rulesSection('🏗️ Setup','Taking turns, each player places two settlements and two connecting roads. Your second settlement immediately hands you one of each resource it touches — that becomes your starting hand.')}
         ${rulesSection('🎲 Your Turn','Roll two dice to produce resources for everyone. Then, in any order, you may trade, build, and buy development cards before ending your turn. You must roll before building or trading.')}
         ${rulesSection('🏠 Building','A road costs '+costStr(COSTS.road)+' and must extend from one of your roads or settlements. A settlement costs '+costStr(COSTS.settlement)+', must connect to one of your roads, and needs at least two empty intersections between it and any other settlement. A city costs '+costStr(COSTS.city)+' and upgrades one of your settlements to collect double.')}
@@ -592,7 +593,7 @@ function renderRulesModal(){
         ${rulesSection('🃏 Development Cards','Cost '+costStr(COSTS.dev)+' each. Knight moves the robber and steals a card, and counts toward Largest Army. Road Building gives 2 free roads. Year of Plenty gives you any 2 resources from the bank. Monopoly takes every card of one resource from all other players. Victory Point cards are worth 1 point automatically and stay hidden until you choose to reveal them by winning.')}
         ${rulesSection('🏆 Longest Road &amp; Largest Army','The first player to build an unbroken chain of 5+ roads holds Longest Road (2 points) until someone builds a longer one. The first to play 3+ Knights holds Largest Army (2 points) until someone plays more.')}
         ${rulesSection('🙈 Hidden Tiles (optional)','When enabled in the lobby, tiles start face-down so settlements are placed blind. They flip once everyone has placed their first settlement, or after all of setup, depending on the option chosen. In the second case the starting resources are handed out at the flip.')}
-        ${rulesSection('🌐 Online Rooms','One player hosts a room and shares the 5-letter code; up to 4 players join from their own devices. The host\u2019s browser runs the game, so the host needs to keep the tab open. If you get disconnected, rejoin with the same code and name.')}
+        ${rulesSection('🌐 Online Rooms','One player hosts a room and shares the 5-letter code; up to 7 more players join from their own devices. The host\u2019s browser runs the game, so the host needs to keep the tab open. If you get disconnected, rejoin with the same code and name. In the same tab you get your seat back automatically; from another tab or device the host has to approve it.')}
         ${rulesSection('🙈 Playing Fair','Only look at your own resources and development cards. When you are done with your turn, pass the device to the next player before they look at the screen.')}
       </div>
     </div>
@@ -695,7 +696,7 @@ function hideModeControl(cur, editable){
     <p class="lobby-hint" style="text-align:left;margin:.5em 0 0">${HIDE_HELP[cur]}</p></div>`;
 }
 function ensureOnline(){
-  if(!ui.online){ let nm=''; try{ nm=localStorage.getItem('si_name')||''; }catch(e){} ui.online={name:nm, code:'', error:''}; }
+  if(!ui.online){ let nm=''; try{ nm=localStorage.getItem('got_name')||''; }catch(e){} ui.online={name:nm, code:'', error:''}; }
 }
 function renderOnlineMenu(){
   ensureOnline(); const O=ui.online;
@@ -833,7 +834,7 @@ function handleAction(action, ds){
     case 'toggleRef': ui.showRef = !ui.showRef; break;
     case 'toggleSound':
       ui.sound = !ui.sound;
-      try{ localStorage.setItem('si_sound', ui.sound?'1':'0'); }catch(e){}
+      try{ localStorage.setItem('got_sound', ui.sound?'1':'0'); }catch(e){}
       break;
     case 'goOnline': ensureOnline(); ui.online.error=''; ui.screen='online-menu'; break;
     case 'createRoom': ensureOnline(); saveName(); createRoom(ui.online.name); break;
@@ -856,7 +857,7 @@ function handleAction(action, ds){
 
 /* ============================= ONLINE (shared netcode in shared/net/) ============================= */
 const tokens = createTokenStore('game-of-trades');
-function saveName(){ try{ localStorage.setItem('si_name', ui.online.name); }catch(e){} }
+function saveName(){ try{ localStorage.setItem('got_name', ui.online.name); }catch(e){} }
 function resetNet(){
   Object.assign(net,{active:false,role:null,code:null,mySeat:null,status:'idle',lobby:null,requests:[],host:null,client:null,transport:null});
 }
@@ -988,7 +989,7 @@ function bindEvents(){
 
 /* ============================= INIT ============================= */
 function init(){
-  try{ ui.sound = localStorage.getItem('si_sound')!=='0'; }catch(e){ ui.sound=true; }
+  try{ ui.sound = localStorage.getItem('got_sound')!=='0'; }catch(e){ ui.sound=true; }
   const jm = location.hash.match(/join=([A-Za-z0-9]{5})/);
   if(jm){ ensureOnline(); ui.online.code=jm[1].toUpperCase(); ui.screen='online-menu'; }
   document.addEventListener('visibilitychange',()=>{
