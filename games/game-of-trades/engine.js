@@ -550,13 +550,16 @@ function longestRoadForPlayer(playerIdx){
 }
 function updateLongestRoad(){
   state.players.forEach((p,i)=>{ p.roadLen = longestRoadForPlayer(i); });
-  let holder = state.longestRoadHolder;
-  if(holder!=null && state.players[holder].roadLen<5) holder=null;
-  let bestIdx = holder, bestLen = holder!=null ? state.players[holder].roadLen : 0;
-  state.players.forEach((p,i)=>{ if(p.roadLen>=5 && p.roadLen>bestLen){ bestLen=p.roadLen; bestIdx=i; } });
-  if(bestIdx!==state.longestRoadHolder){
-    state.longestRoadHolder = bestIdx;
-    if(bestIdx!=null) log(`${state.players[bestIdx].name} takes the Longest Road!`);
+  // The title needs a road of at least 5, and goes to the single longest one.
+  // A holder who is still tied for longest keeps it. If the holder lost it and others tie, nobody has it.
+  const longest = Math.max(0, ...state.players.map(p=>p.roadLen));
+  const leaders = longest>=5 ? state.players.map((p,i)=>i).filter(i=>state.players[i].roadLen===longest) : [];
+  let holder = null;
+  if(leaders.includes(state.longestRoadHolder)) holder = state.longestRoadHolder;
+  else if(leaders.length===1) holder = leaders[0];
+  if(holder!==state.longestRoadHolder){
+    state.longestRoadHolder = holder;
+    if(holder!=null) log(`${state.players[holder].name} takes the Longest Road!`);
   }
 }
 function updateLargestArmy(){
