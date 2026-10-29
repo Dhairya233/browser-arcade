@@ -19,6 +19,7 @@ label{font-family:sans-serif;font-size:.85em;color:var(--muted);display:block;ma
 .row{display:flex;gap:10px;flex-wrap:wrap;}
 .playerRow{display:flex;align-items:center;gap:10px;background:var(--panel2);padding:8px 10px;border-radius:8px;margin:6px 0;}
 .dot{width:16px;height:16px;border-radius:50%;flex:0 0 auto;border:2px solid #0006;}
+.dot.num{display:flex;align-items:center;justify-content:center;width:22px;height:22px;font:700 12px sans-serif;color:#fff;text-shadow:0 0 2px #000,0 0 2px #000;}
 .gameWrap{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start;}
 #mapBox{flex:1 1 640px;background:linear-gradient(160deg,#cfe8f5,#eee3c9 55%,#f7ecd0);border-radius:12px;border:4px solid #3a2a15;min-width:300px;height:min(78vh,720px);overflow:auto;position:relative;touch-action:pan-x pan-y;}
 #mapInner{transform-origin:0 0;width:1300px;height:950px;}
@@ -28,6 +29,10 @@ label{font-family:sans-serif;font-size:.85em;color:var(--muted);display:block;ma
 .zoomCtl button{padding:6px 12px;font-size:1.1em;}
 .legendMini{background:#152a40dd;border-radius:8px;padding:6px 10px;display:flex;gap:10px;font-family:sans-serif;font-size:.8em;pointer-events:auto;align-items:center;color:var(--txt);}
 .legendMini i{display:inline-block;width:16px;height:5px;border-radius:3px;margin-right:4px;vertical-align:middle;}
+/* the same three line styles as .edge.* below: thin solid, dashed, thick */
+.legendMini i.taxi,.legendRow .legSwatch.taxi{background:var(--taxi);height:3px;}
+.legendMini i.bus,.legendRow .legSwatch.bus{background:repeating-linear-gradient(90deg,var(--bus) 0 6px,transparent 6px 9px);height:4px;border-radius:0;}
+.legendMini i.underground,.legendRow .legSwatch.underground{background:var(--tube);height:6px;}
 .sidebar{flex:0 0 280px;min-width:230px;}
 .panel{background:var(--panel);border-radius:12px;padding:12px;margin-bottom:10px;font-family:sans-serif;font-size:.85em;}
 .panel h3{margin:0 0 8px;color:var(--gold);font-family:Georgia,serif;}

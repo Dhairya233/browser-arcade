@@ -1,6 +1,7 @@
 import * as Engine from './engine.js';
 import { MAPW, MAPH, REVEAL_ROUNDS, COLORS } from './engine.js';
 import { MAP, shadowHuntAdapter } from './adapter.js';
+import { ringKind, ringDashAttr, innerRingSVG } from './look.js';
 import { createHost } from '../../shared/net/host.js';
 import { createClient } from '../../shared/net/client.js';
 import { createPeerJsTransport } from '../../shared/net/transport-peerjs.js';
@@ -12,12 +13,9 @@ import { cleanName, describeNetError } from '../../shared/net/protocol.js';
 const { stations, edges } = MAP;
 const EMOJI=["🕵️","🎭","🌉","🎸","🏛️","🎷","👑","💎","⚽","📚","🎨","🦊","⏰","🎤","🎳","🏉","🎈","🍩","🚂","🔑","👼","⚖️","🎬","📖","🌷","🎡","⛪","🍺","🏺","🧵","🎧","🏟️","🌳","🦉","🏆","🎪","🦌","🎾","🏢","🌼","🚉","⚓","🐕","🧭","🌲"];
 function neighborsAny(stationId){return MAP.adj[stationId];}
-function stationRingColor(id){
-  const touching=edges.filter(e=>e.a===id||e.b===id).map(e=>e.type);
-  if(touching.includes('underground')) return 'var(--tube)';
-  if(touching.includes('bus')) return 'var(--bus)';
-  return 'var(--taxi)';
-}
+const RING_VAR={taxi:'var(--taxi)',bus:'var(--bus)',underground:'var(--tube)'};
+function stationKind(id){ return ringKind(edges.filter(e=>e.a===id||e.b===id).map(e=>e.type)); }
+function stationRingColor(id){ return RING_VAR[stationKind(id)]; }
 
 /* ---------- game state ---------- */
 let G=null;
@@ -109,7 +107,9 @@ function drawMapForStartPick(){
     const ring=isSelected?'#e0b84a':(isTaken?'#888':stationRingColor(s.id));
     const fill=isSelected?'#fff3c0':(isTaken?'#ddd':'#fff9e6');
     const cls=isTaken?'stationDot':'stationDot reachable';
-    svg+=`<circle class="${cls}" cx="${s.x}" cy="${s.y}" r="14" fill="${fill}" stroke="${ring}" stroke-width="${isSelected?4:3}" onclick="startPickClicked(${s.id})" style="cursor:${isTaken?'not-allowed':'pointer'}"/>`;
+    const kind=stationKind(s.id);
+    svg+=`<circle class="${cls}" cx="${s.x}" cy="${s.y}" r="14" fill="${fill}" stroke="${ring}" stroke-width="${isSelected?4:3}"${ringDashAttr(kind)} onclick="startPickClicked(${s.id})" style="cursor:${isTaken?'not-allowed':'pointer'}"/>`;
+    svg+=innerRingSVG(s.x,s.y,kind,ring);
     const labelBelow=s.id%2===0;
     svg+=`<text x="${s.x}" y="${labelBelow?s.y+28:s.y-19}" font-size="13" class="stationLbl" text-anchor="middle">${EMOJI[s.id]||''} ${s.name}</text>`;
     if(isSelected){
@@ -316,7 +316,7 @@ function buildLocalRoster(){
   const n=+document.getElementById('localCount').value;
   let html='';
   for(let i=0;i<n;i++){
-    html+=`<div class="playerRow"><div class="dot" style="background:${i===0?'#111':COLORS[(i-1)%COLORS.length]}"></div><input style="flex:1" id="lp${i}" placeholder="${i===0?'Phantom player name':'Detective '+i+' name'}" value="${i===0?'The Phantom':'Detective '+i}"></div>`;
+    html+=`<div class="playerRow"><div class="dot num" style="background:${i===0?'#111':COLORS[(i-1)%COLORS.length]}">${i===0?'P':i}</div><input style="flex:1" id="lp${i}" placeholder="${i===0?'Phantom player name':'Detective '+i+' name'}" value="${i===0?'The Phantom':'Detective '+i}"></div>`;
   }
   document.getElementById('localRoster').innerHTML=html;
 }
@@ -364,9 +364,9 @@ function openHowTo(){
     <div class="htpCard"><div class="htpIcon">🏆</div><h4>Winning</h4><p>Detectives win by landing exactly on The Phantom. He wins by surviving all the rounds, or stranding everyone.</p></div>
   </div>
   <div class="legendRow">
-    <span class="legItem"><span class="legSwatch" style="background:var(--taxi)"></span>🚕 Taxi — short hops</span>
-    <span class="legItem"><span class="legSwatch" style="background:var(--bus)"></span>🚌 Bus — medium hops</span>
-    <span class="legItem"><span class="legSwatch" style="background:var(--tube)"></span>🚇 Underground — long jumps</span>
+    <span class="legItem"><span class="legSwatch taxi"></span>🚕 Taxi — short hops (plain ring)</span>
+    <span class="legItem"><span class="legSwatch bus"></span>🚌 Bus — medium hops (dashed ring)</span>
+    <span class="legItem"><span class="legSwatch underground"></span>🚇 Underground — long jumps (double ring)</span>
   </div>
   <p style="text-align:center;margin-top:16px"><button onclick="closeModal()">Got it 👍</button></p>`;
   document.getElementById('modalBg').classList.add('active');
@@ -407,7 +407,7 @@ function render(){
 
   const offline=i=>ONLINE && ME.online && ONLINE.connected && ONLINE.connected[G.seatOf[i]]===false;
   document.getElementById('detPanel').innerHTML = G.players.map((p,i)=>p.isPhantom?'':
-    `<div class="playerRow"><div class="dot" style="background:${p.color}"></div><div style="font-family:sans-serif;flex:1"><b>${esc(p.name)}</b>${offline(i)?' <span style="color:var(--muted)">(offline)</span>':''}<div class="tickets">🚕${p.tickets.taxi} 🚌${p.tickets.bus} 🚇${p.tickets.underground}</div></div></div>`).join('');
+    `<div class="playerRow"><div class="dot num" style="background:${p.color}">${i}</div><div style="font-family:sans-serif;flex:1"><b>${esc(p.name)}</b>${offline(i)?' <span style="color:var(--muted)">(offline)</span>':''}<div class="tickets">🚕${p.tickets.taxi} 🚌${p.tickets.bus} 🚇${p.tickets.underground}</div></div></div>`).join('');
 
   document.getElementById('log').innerHTML = [...G.log].reverse().map(l=>`<div>${esc(l)}</div>`).join('');
 
@@ -445,7 +445,9 @@ function drawMap(activePlayer){
   stations.forEach(s=>{
     const isReach=reach.includes(s.id);
     const ring=stationRingColor(s.id);
-    svg+=`<circle class="stationDot ${isReach?'reachable':''}" cx="${s.x}" cy="${s.y}" r="14" fill="#fff9e6" stroke="${ring}" onclick="stationClicked(${s.id})"/>`;
+    const kind=stationKind(s.id);
+    svg+=`<circle class="stationDot ${isReach?'reachable':''}" cx="${s.x}" cy="${s.y}" r="14" fill="#fff9e6" stroke="${ring}"${ringDashAttr(kind)} onclick="stationClicked(${s.id})"/>`;
+    svg+=innerRingSVG(s.x,s.y,kind,ring);
     const labelBelow = s.id%2===0;
     svg+=`<text x="${s.x}" y="${labelBelow?s.y+28:s.y-19}" font-size="13" class="stationLbl" text-anchor="middle">${EMOJI[s.id]||''} ${s.name}</text>`;
   });
