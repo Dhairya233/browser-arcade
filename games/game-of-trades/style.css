@@ -70,7 +70,7 @@
   }
   .link-btn{background:none;border:none;color:var(--gold);text-decoration:underline;cursor:pointer;font-weight:600;}
   .muted{color:var(--ink-soft); font-size:.85em;}
-  .swatch{display:inline-block; width:.9em; height:.9em; border-radius:50%; border:1.5px solid var(--ink); vertical-align:middle;}
+  .swatch{display:inline-flex; align-items:center; justify-content:center; width:1.5em; height:1.5em; border-radius:50%; border:1.5px solid var(--ink); vertical-align:middle; font-size:.8em; font-weight:700; line-height:1; flex:0 0 auto;}
 
   /* ---------- Home ---------- */
   .home{max-width:640px; margin:0 auto; padding:2rem 1.2rem 3rem; text-align:center; color:var(--parchment);}
@@ -95,7 +95,7 @@
   .seg.active{background:var(--brick); color:#fff;}
   .lobby-players{display:flex; flex-direction:column; gap:.9em; margin-bottom:1.6em;}
   .player-row{display:flex; align-items:center; gap:.6em; background:var(--panel); border:1px solid var(--panel-border); border-radius:10px; padding:.6em .8em; flex-wrap:wrap;}
-  .player-row .swatch{width:1.2em; height:1.2em;}
+  .player-row .swatch{width:1.8em; height:1.8em;}
   .name-input{flex:1; min-width:120px; padding:.5em .6em; border-radius:6px; border:1px solid var(--panel-border); font-family:inherit; font-size:.95rem;}
   .pin-input{width:130px; padding:.5em .6em; border-radius:6px; border:1px solid var(--panel-border); font-family:inherit; font-size:.9rem;}
   .lobby-hint{color:var(--parchment-2); text-align:center; margin:-.4em 0 1em; font-size:.85em;}
@@ -109,7 +109,7 @@
     background: var(--walnut);
     background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--pc) 35%, var(--walnut)), var(--walnut));}
   .pass-card{background:var(--panel); border-radius:18px; padding:2.2em 1.8em; text-align:center; max-width:380px; box-shadow:0 10px 30px rgba(0,0,0,.4); border:3px solid var(--pc);}
-  .pass-swatch{width:3.4em; height:3.4em; border-radius:50%; margin:0 auto .6em; border:3px solid var(--ink);}
+  .pass-swatch{display:flex; align-items:center; justify-content:center; font-size:1.1em; font-weight:700; width:3.4em; height:3.4em; border-radius:50%; margin:0 auto .6em; border:3px solid var(--ink);}
   .pass-card h2{font-size:1rem; color:var(--ink-soft); margin-bottom:.2em;}
   .pass-name{font-family:'Cinzel',serif; font-size:1.8rem; font-weight:700; margin-bottom:.5em;}
   .pass-msg{margin-bottom:1.4em; color:var(--ink-soft);}
@@ -125,7 +125,7 @@
     background:var(--walnut-2); border-bottom:2px solid var(--walnut-3);
   }
   .turn-indicator{display:flex; align-items:center; gap:.4em; color:var(--parchment); font-weight:600; flex:1;}
-  .turn-indicator .dot{width:.8em; height:.8em; border-radius:50%; background:var(--pc); border:1.5px solid var(--parchment);}
+  .turn-indicator .dot{display:inline-flex; align-items:center; justify-content:center; width:1.5em; height:1.5em; font-size:.8em; font-weight:700; line-height:1; border-radius:50%; background:var(--pc); border:1.5px solid var(--parchment);}
   .top-actions{display:flex; gap:.4em;}
   .board-area{position:relative; padding:.6em; display:flex; justify-content:center;}
   .board-svg{width:100%; max-width:640px; height:auto;}

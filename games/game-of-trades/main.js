@@ -1,6 +1,7 @@
 import * as Rules from './engine.js';
 import {RESOURCE, COSTS, MAX_PLAYERS, hasResources} from './engine.js';
 import {gameOfTradesAdapter, GAME_ACTIONS, COLOR_CHOICES} from './adapter.js';
+import {settlementSVG, citySVG, swatchHTML, seatMark, inkOn} from './pieces.js';
 import {createHost} from '../../shared/net/host.js';
 import {createClient} from '../../shared/net/client.js';
 import {createPeerJsTransport} from '../../shared/net/transport-peerjs.js';
@@ -188,7 +189,7 @@ function renderLobby(){
     <div class="lobby-players">
       ${L.players.slice(0,L.numPlayers).map((p,i)=>`
         <div class="player-row">
-          <span class="swatch" style="background:${p.color}"></span>
+          ${swatchHTML(p.color,i)}
           <input type="text" class="name-input" placeholder="Player ${i+1} name" value="${escapeHtml(p.name)}" data-i="${i}" />
           <input type="password" class="pin-input" placeholder="Password (optional)" value="${escapeHtml(p.password||'')}" data-i="${i}" autocomplete="new-password" />
           <div class="color-picker">
@@ -212,7 +213,7 @@ function renderPassScreen(idx){
   return `
   <div class="pass-screen" style="--pc:${p.color}">
     <div class="pass-card" style="--pc:${p.color}">
-      <div class="pass-swatch" style="background:${p.color}"></div>
+      <div class="pass-swatch" style="background:${p.color};color:${inkOn(p.color)}">${seatMark(idx)}</div>
       <h2>Pass the device to</h2>
       <div class="pass-name">${escapeHtml(p.name)}</div>
       <p class="pass-msg">${passContext(idx)}</p>
@@ -234,7 +235,7 @@ function renderGameOver(){
     <h1>🏆 ${escapeHtml(w.name)} wins!</h1>
     <p>with ${calcVP(state.winner,{includeHidden:true})} victory points</p>
     <div class="final-scores">
-      ${ranked.map(({p,vp})=>`<div class="score-row"><span class="swatch" style="background:${p.color}"></span>${escapeHtml(p.name)} — ${vp} VP</div>`).join('')}
+      ${ranked.map(({p,i,vp})=>`<div class="score-row">${swatchHTML(p.color,i)}${escapeHtml(p.name)} — ${vp} VP</div>`).join('')}
     </div>
     <button class="btn btn-primary btn-lg" data-action="goHome">Back to Home</button>
   </div>`;
@@ -242,12 +243,6 @@ function renderGameOver(){
 
 /* ============================= RENDER: BOARD SVG ============================= */
 function findVertex(id){ return state.board.vertices.find(v=>v.id===id); }
-function settlementSVG(x,y,color){
-  return `<g transform="translate(${x-8},${y-11})"><polygon points="0,8 0,16 16,16 16,8 8,0" fill="${color}" stroke="#241a12" stroke-width="1.5"/></g>`;
-}
-function citySVG(x,y,color){
-  return `<g transform="translate(${x-11},${y-15})"><rect x="0" y="10" width="12" height="12" fill="${color}" stroke="#241a12" stroke-width="1.5"/><polygon points="0,10 6,3 12,10" fill="${color}" stroke="#241a12" stroke-width="1.5"/><rect x="11" y="15" width="11" height="7" fill="${color}" stroke="#241a12" stroke-width="1.5"/></g>`;
-}
 function renderTile(t){
   const pts = t.corners.map(cid=>{ const v=findVertex(cid); return `${v.x},${v.y}`; }).join(' ');
   if(state.tilesHidden){
@@ -302,7 +297,7 @@ function renderVertex(v){
   const canCity = v.building && iAmCurrent() && isVertexBuildableCity(v.id);
   if(v.building){
     const color = state.players[v.building.playerIdx].color;
-    s += v.building.type==='settlement' ? settlementSVG(v.x,v.y,color) : citySVG(v.x,v.y,color);
+    s += v.building.type==='settlement' ? settlementSVG(v.x,v.y,color,v.building.playerIdx) : citySVG(v.x,v.y,color,v.building.playerIdx);
     if(canCity){
       s += `<circle cx="${v.x}" cy="${v.y}" r="14" fill="transparent" stroke="#d9a441" stroke-width="3" class="pulse hit" data-action="clickVertexCity" data-vertex-id="${v.id}"/>`;
     }
@@ -415,7 +410,7 @@ function renderPlayersStrip(){
       const vp = calcVP(i, {includeHidden:false});
       const isCurrent = i===state.currentPlayerIdx;
       return `<div class="player-chip ${isCurrent?'current':''}" style="--pc:${p.color}">
-        <span class="swatch" style="background:${p.color}"></span>
+        ${swatchHTML(p.color,i)}
         <span>${escapeHtml(p.name)}</span>
         ${state.online?`<span class="conn ${state.online.connected[i]?'on':''}"></span>`:''}<span class="pc-stat">🏆${vp}</span>
         <span class="pc-stat">🎴${cards}</span>
@@ -631,7 +626,7 @@ function renderGame(){
   return `
   <div class="game-shell">
     <div class="top-bar">
-      <span class="turn-indicator" style="--pc:${p.color}"><span class="dot"></span>${escapeHtml(p.name)}'s turn</span>
+      <span class="turn-indicator" style="--pc:${p.color}"><span class="dot" style="color:${inkOn(p.color)}">${seatMark(state.currentPlayerIdx)}</span>${escapeHtml(p.name)}'s turn</span>
       ${net.active?`<span class="room-chip" data-action="copyCode" title="Room code">🌐 ${net.code}</span>`:''}
       <div class="top-actions">
         <button class="icon-btn" data-action="toggleRef" title="Cheat sheet">📋</button>
@@ -723,7 +718,7 @@ function renderOnlineRoom(){
     <div class="room-code" data-action="copyCode" title="Tap to copy">${net.code}</div>
     <p class="lobby-hint">Friends choose <b>Play Online → Join</b> and enter this code. ${link?'<button class="link-btn" data-action="copyLink">Copy invite link</button>':''}</p>
     <div class="lobby-players">
-      ${players.map((p,i)=>`<div class="player-row"><span class="swatch" style="background:${p.color}"></span>
+      ${players.map((p,i)=>`<div class="player-row">${swatchHTML(p.color,i)}
         <b style="flex:1;color:var(--ink)">${escapeHtml(p.name)}${i===net.mySeat?' (you)':''}${i===0?' 👑':''}</b>
         ${i===net.mySeat?`<div class="color-picker">${COLOR_CHOICES.map(c=>`<button class="color-dot ${p.color===c?'sel':''}" style="background:${c}" data-action="setOnlineColor" data-color="${c}" title="${COLOR_NAMES[c]}"></button>`).join('')}</div>`:''}
         <span class="conn ${p.on?'on':''}"></span></div>`).join('')}
