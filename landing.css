@@ -1,0 +1,30 @@
+body{margin:0;background:var(--vellum);color:var(--slate);font:400 var(--t-md)/1.55 var(--f-body);
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.wrap{max-width:68rem;margin:0 auto;padding:0 var(--s4)}
+.titleblock{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s5);align-items:center;justify-content:space-between;
+  border-bottom:var(--stroke) solid var(--slate);padding:var(--s3) 0;font:700 var(--t-sm)/1.2 var(--f-title);letter-spacing:.12em;text-transform:uppercase}
+.scale{display:flex;align-items:center;gap:var(--s2)}
+.scale i{display:block;width:96px;height:8px;border:var(--stroke) solid var(--slate);border-top:0;
+  background:linear-gradient(90deg,var(--slate) 25%,transparent 25% 50%,var(--slate) 50% 75%,transparent 75%)}
+h1{font:700 clamp(2.5rem,9vw,5rem)/.95 var(--f-title);margin:var(--s7) 0 var(--s4);letter-spacing:-.01em}
+.pitch{max-width:36rem;font-size:var(--t-lg);margin:0 0 var(--s7)}
+.sheets{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:var(--s5);align-items:stretch}
+@media (max-width:760px){.sheets{grid-template-columns:minmax(0,1fr)}}
+.sheet{padding:var(--s5);border-radius:var(--r);display:flex;flex-direction:column;gap:var(--s4)}
+.sheet.night{background:var(--night);color:var(--night-ink)}
+.sheet.day{background:var(--vellum);border:var(--stroke) solid var(--slate)}
+.sheet h2{font:700 var(--t-2xl)/1 var(--f-title);margin:0}
+.sheet p{margin:0}
+.sheet .map{width:100%;height:auto;max-height:180px;display:block}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:var(--s1) var(--s4);margin:0;font-size:var(--t-sm)}
+.facts dt{font:700 var(--t-xs)/1.9 var(--f-title);letter-spacing:.12em;text-transform:uppercase;color:var(--slate-2)}
+.night .facts dt{color:var(--night-mute)}
+.facts dd{margin:0}
+.actions{display:flex;flex-wrap:wrap;gap:var(--s3);margin-top:auto}
+.how{margin:var(--s7) 0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:var(--s5);border-top:var(--stroke) solid var(--slate);padding-top:var(--s5)}
+@media (max-width:760px){.how{grid-template-columns:minmax(0,1fr)}}
+.how h2{font:700 var(--t-xl)/1.1 var(--f-title);margin:0}
+.how p{margin:0 0 var(--s3);max-width:40rem}
+footer{border-top:1px solid var(--slate-2);padding:var(--s4) 0 var(--s6);font-size:var(--t-sm);color:var(--slate-2)}
+footer p{margin:0 0 var(--s2)}
+footer a{color:var(--slate)}

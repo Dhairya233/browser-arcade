@@ -7,6 +7,10 @@
 - Licence: MIT. Copyright (c) 2015 Michelle Bu and Eric Zhang. The full text is in `vendor/LICENSE-peerjs`.
 - The file embeds the names and email addresses of upstream contributors, as published by the PeerJS project. It is kept byte-for-byte as released.
 
+### IBM Plex Sans, Plex Sans Condensed and Plex Mono
+- Files: `shared/ui/fonts/*.woff2`, Latin subsets as packaged by Fontsource, unmodified. Used by the arcade landing page.
+- Licence: SIL Open Font License 1.1, copyright IBM Corp. The licence text is in `shared/ui/fonts/LICENSE-IBM-Plex-OFL.txt`.
+
 ## Loaded at run time (not included in this repository)
 
 ### Fonts: Cinzel and Inter (Game of Trades)
