@@ -63,7 +63,7 @@ export function withTimeout(promise, ms, timers = DEFAULT_TIMERS) {
 export function describeNetError(err) {
   const type = err && err.type;
   if (type === 'not-found') return 'Room not found. Check the code and try again.';
-  if (type === 'timeout') return 'The connection timed out. Some networks and VPNs block peer-to-peer connections. Try again, or try a different network.';
+  if (type === 'timeout') return 'The connection timed out. Your network may block peer-to-peer connections, as some school, work, mobile and VPN networks do. Try again, or try a different network.';
   if (type === 'no-peerjs') return 'Online play could not load. Check your internet connection and reload the page.';
   return 'Could not reach the matchmaking server (' + (type || 'unknown error') + '). Check your internet connection. Some firewalls and VPNs block it.';
 }

@@ -1,4 +1,5 @@
 /* Shared components: buttons, focus, status block. Needs tokens.css. */
+[hidden]{display:none!important}
 *,*::before,*::after{box-sizing:border-box}
 :where(button,a,input,select,summary,[tabindex]):focus-visible{outline:3px solid var(--orange);outline-offset:2px}
 .on-night :where(button,a,input,select,summary,[tabindex]):focus-visible{outline-color:var(--amber)}
