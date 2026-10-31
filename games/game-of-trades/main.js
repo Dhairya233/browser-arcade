@@ -652,7 +652,7 @@ function renderGame(){
       </div>
     </div>
     <div class="board-area">
-      <div class="board-scroll" tabindex="0" aria-label="Board. Scroll to pan.">${renderBoardSVG()}</div>
+      <div class="board-scroll" role="group" tabindex="0" aria-label="Board. Scroll to pan.">${renderBoardSVG()}</div>
       ${renderBanner()}
     </div>
     <div class="side-panel">
@@ -1012,6 +1012,8 @@ function init(){
   try{ ui.sound = localStorage.getItem('got_sound')==='1'; }catch(e){ ui.sound=false; }
   const jm = location.search.match(/[?&]room=([A-Za-z0-9]{5})(?![A-Za-z0-9])/) || location.hash.match(/join=([A-Za-z0-9]{5})/);
   if(jm){ ensureOnline(); ui.online.code=jm[1].toUpperCase(); ui.online.invited=true; ui.screen='online-menu'; }
+  if(!jm && location.hash==='#local') ui.screen='lobby';
+  else if(!jm && location.hash==='#online'){ ensureOnline(); ui.screen='online-menu'; }
   document.addEventListener('visibilitychange',()=>{
     if(!document.hidden && net.client) net.client.nudge();
   });

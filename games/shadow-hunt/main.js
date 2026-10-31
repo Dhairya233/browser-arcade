@@ -113,7 +113,7 @@ function drawMapForStartPick(){
     const kind=stationKind(s.id);
     svg+=`<circle class="${cls}" cx="${s.x}" cy="${s.y}" r="14" fill="${fill}" stroke="${ring}" stroke-width="${isSelected?4:3}"${ringDashAttr(kind)} onclick="startPickClicked(${s.id})" style="cursor:${isTaken?'not-allowed':'pointer'}"/>`;
     svg+=innerRingSVG(s.x,s.y,kind,ring);
-    if(!isTaken) svg+=`<circle class="hit" cx="${s.x}" cy="${s.y}" r="${hitRadius()}" onclick="startPickClicked(${s.id})"/>`;
+    if(!isTaken) svg+=`<circle class="hit" cx="${s.x}" cy="${s.y}" r="${hitRadius()}" tabindex="0" role="button" aria-label="Pick ${s.name} as your start" onclick="startPickClicked(${s.id})"/>`;
     const labelBelow=s.id%2===0;
     svg+=`<text x="${s.x}" y="${labelBelow?s.y+28:s.y-19}" font-size="13" class="stationLbl" text-anchor="middle">${s.name}</text>`;
     if(isSelected){
@@ -467,7 +467,7 @@ function drawMap(activePlayer){
     svg+=`<circle class="stationDot ${isReach?'reachable':''}" cx="${s.x}" cy="${s.y}" r="14" fill="#14202b" stroke="${ring}"${ringDashAttr(kind)} onclick="stationClicked(${s.id})"/>`;
     svg+=innerRingSVG(s.x,s.y,kind,ring);
     if(isReach) svg+=`<circle class="reachRing" cx="${s.x}" cy="${s.y}" r="19"/>`;
-    svg+=`<circle class="hit" cx="${s.x}" cy="${s.y}" r="${hitRadius()}" onclick="stationClicked(${s.id})"/>`;
+    svg+=`<circle class="hit" cx="${s.x}" cy="${s.y}" r="${hitRadius()}" tabindex="0" role="button" aria-label="${isReach?'Move to ':''}${s.name}${isReach?'':' (not reachable)'}" onclick="stationClicked(${s.id})"/>`;
     const labelBelow = s.id%2===0;
     svg+=`<text x="${s.x}" y="${labelBelow?s.y+28:s.y-19}" font-size="13" class="stationLbl" text-anchor="middle">${s.name}</text>`;
   });
@@ -599,4 +599,15 @@ Object.assign(window, {
   document.getElementById('jrCode').value=code;
   show('joinRoomScreen');
   document.getElementById('jrName').focus();
+})();
+
+/* Stations can be reached with Tab and chosen with Enter or Space. */
+document.getElementById('mapInner').addEventListener('keydown',e=>{
+  if((e.key==='Enter'||e.key===' ') && e.target.classList && e.target.classList.contains('hit')){ e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click',{bubbles:true})); }
+});
+
+/* The arcade landing page links straight to a mode: games/shadow-hunt/#local or #online. */
+(function(){
+  const h=location.hash;
+  if(h==='#local') show('setupLocal'); else if(h==='#online') show('setupOnline');
 })();
