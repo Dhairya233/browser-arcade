@@ -8,30 +8,28 @@ import {createPeerJsTransport} from '../../shared/net/transport-peerjs.js';
 import {peerOptions} from '../../shared/net/peer-options.js';
 import {createTokenStore} from '../../shared/net/ids.js';
 import {describeNetError} from '../../shared/net/protocol.js';
+import {icon, glyphAt, dieSVG} from './icons.js';
 
 /* The rules live in engine.js. This file draws the game, handles input and runs the network. */
 
 /* ============================= CONSTANTS ============================= */
 const TILE_VISUAL = {
-  wood:  {color:'#2f5233', icon:'🌲'},
-  brick: {color:'#b5502f', icon:'🧱'},
-  ore:   {color:'#7c7a78', icon:'🪨'},
-  wheat: {color:'#d9a441', icon:'🌾'},
-  sheep: {color:'#8fae5d', icon:'🐑'},
-  desert:{color:'#ddc98b', icon:'🏜️'}
+  wood:  {color:'#2f5233', glyph:'wood',   name:'Lumber'},
+  brick: {color:'#b5502f', glyph:'brick',  name:'Brick'},
+  ore:   {color:'#7c7a78', glyph:'ore',    name:'Ore'},
+  wheat: {color:'#d9a441', glyph:'wheat',  name:'Grain'},
+  sheep: {color:'#8fae5d', glyph:'sheep',  name:'Wool'},
+  desert:{color:'#ddc98b', glyph:'desert', name:'Desert'}
 };
-const DEV_LABELS = {
-  knight:'⚔️ Knight',
-  vp:'⭐ Victory Point',
-  roadbuilding:'🛣️ Road Building',
-  yearofplenty:'🌽 Year of Plenty',
-  monopoly:'📈 Monopoly'
-};
+const DEV_LABELS = {knight:'Knight', vp:'Victory Point', roadbuilding:'Road Building', yearofplenty:'Year of Plenty', monopoly:'Monopoly'};
+const DEV_ICONS = {knight:'knight', vp:'trophy', roadbuilding:'road', yearofplenty:'wheat', monopoly:'trade'};
+const devLabel = type => icon(DEV_ICONS[type])+' '+DEV_LABELS[type];
+const resIcon = r => icon(r, RESOURCE[r].label);
 const COLOR_NAMES = {'#c0392b':'Red','#2c5f8a':'Blue','#ede7d9':'White','#d98a2b':'Orange','#3f6b3f':'Green','#8e44ad':'Purple','#e8d24a':'Yellow','#2f2f2f':'Black'};
 
 /* ============================= GLOBAL UI STATE ============================= */
 let state = null;
-let ui = {screen:'home', sound:true, lobby:null, showRef:false};
+let ui = {screen:'home', sound:false, lobby:null, showRef:false};
 let uiShowRules = false;
 let toastMsg = null;
 let audioCtx = null;
@@ -92,7 +90,7 @@ function otherPlayerIndices(){
   return state.players.map((_,i)=>i).filter(i=>i!==state.currentPlayerIdx);
 }
 function costStr(cost){
-  return Object.entries(cost).map(([r,n])=>`${n}${RESOURCE[r].icon}`).join(' ');
+  return Object.entries(cost).map(([r,n])=>`${n}${resIcon(r)}`).join(' ');
 }
 function viewerIdx(){ return net.active ? net.mySeat : (state.deviceHolder!=null ? state.deviceHolder : state.currentPlayerIdx); }
 function iAmCurrent(){ return viewerIdx()===state.currentPlayerIdx; }
@@ -149,20 +147,21 @@ function passContext(idx){
 function renderHome(){
   const summary = getSavedSummary();
   return `
+  <div class="titleblock"><a href="../../">Browser Arcade</a><span>Game of Trades</span><span>3 to 8 players</span></div>
   <div class="home">
-    <div class="hero-emblem">🎲</div>
+    <svg class="emblem" viewBox="0 0 96 84" role="img" aria-label="Three land hexagons with a numbered settlement"><g fill="#DCE3D2" stroke="#1E2B33" stroke-width="2"><polygon points="24,6 40,15 40,33 24,42 8,33 8,15"/><polygon points="72,6 88,15 88,33 72,42 56,33 56,15"/><polygon points="48,42 64,51 64,69 48,78 32,69 32,51"/></g><path d="M40 33 L48 42" stroke="#B8441A" stroke-width="5"/><rect x="34" y="27" width="12" height="12" fill="#B8441A" stroke="#1E2B33" stroke-width="2"/></svg>
     <h1>Game of Trades</h1>
-    <p class="tagline">A trading &amp; building game for 3 to 8 players. Share one screen and pass it around, or host a room and play from your own devices.</p>
+    <p class="tagline">Settle an island, trade with the table and build roads and cities. Share one screen and pass it around, or host a room and play from your own devices.</p>
     <div class="home-actions">
-      <button class="btn btn-primary btn-lg" data-action="goOnline">🌐 Play Online</button>
-      ${summary ? `<button class="btn btn-accent btn-lg" data-action="continueGame">Continue Game</button>` : ''}
-      <button class="btn btn-ghost btn-lg" data-action="goLobby">New Local Game</button>
-      <button class="btn btn-ghost" data-action="toggleRules">How to Play</button>
+      <button class="btn btn-primary btn-lg" data-action="goOnline">${icon('link')}Play online</button>
+      ${summary ? `<button class="btn btn-accent btn-lg" data-action="continueGame">${icon('play')}Continue game</button>` : ''}
+      <button class="btn btn-lg" data-action="goLobby">${icon('person')}New local game</button>
+      <button class="btn btn-lg" data-action="toggleRules">${icon('help')}How to play</button>
     </div>
-    <p class="creator-credit">An independent fan-made game, not affiliated with or endorsed by the makers of any commercial board game.</p>
+    <p class="creator-credit">An independent fan-made game, not affiliated with or endorsed by the makers of any commercial board game. Made by Dhairya Shah.</p>
     ${summary ? `
     <section class="saved-rooms">
-      <p>Game in progress: <b>${summary.players.map(escapeHtml).join(', ')}</b>${summary.phase==='gameover'?' — finished':''}</p>
+      <p>Game in progress: <b>${summary.players.map(escapeHtml).join(', ')}</b>${summary.phase==='gameover'?' (finished)':''}</p>
       <p class="muted">Starting a new game will replace this one.</p>
       <button class="btn btn-sm btn-danger" data-action="deleteSavedGame">Delete this game</button>
     </section>` : ''}
@@ -178,7 +177,7 @@ function renderLobby(){
   const L = ui.lobby;
   return `
   <div class="lobby">
-    <h1>New Game</h1>
+    <h1>New local game</h1>
     <div class="lobby-count">
       <span>Players</span>
       <div class="segmented">
@@ -190,17 +189,17 @@ function renderLobby(){
       ${L.players.slice(0,L.numPlayers).map((p,i)=>`
         <div class="player-row">
           ${swatchHTML(p.color,i)}
-          <input type="text" class="name-input" placeholder="Player ${i+1} name" value="${escapeHtml(p.name)}" data-i="${i}" />
-          <input type="password" class="pin-input" placeholder="Password (optional)" value="${escapeHtml(p.password||'')}" data-i="${i}" autocomplete="new-password" />
+          <input type="text" class="name-input" aria-label="Player ${i+1} name" placeholder="Player ${i+1} name" value="${escapeHtml(p.name)}" data-i="${i}" />
+          <input type="password" class="pin-input" aria-label="Player ${i+1} password (optional)" placeholder="Password (optional)" value="${escapeHtml(p.password||'')}" data-i="${i}" autocomplete="new-password" />
           <div class="color-picker">
-            ${COLOR_CHOICES.map(c=>`<button class="color-dot ${p.color===c?'sel':''}" style="background:${c}" data-action="setColor" data-i="${i}" data-color="${c}" title="${COLOR_NAMES[c]}"></button>`).join('')}
+            ${COLOR_CHOICES.map(c=>`<button class="color-dot ${p.color===c?'sel':''}" style="background:${c}" data-action="setColor" data-i="${i}" data-color="${c}" title="${COLOR_NAMES[c]}" aria-label="${COLOR_NAMES[c]}"></button>`).join('')}
           </div>
         </div>`).join('')}
     </div>
     ${hideModeControl(L.hide||'off', true)}
     <div class="lobby-buttons">
-      <button class="btn btn-ghost" data-action="goHome">Back</button>
-      <button class="btn btn-primary btn-lg" data-action="startGame">Start Game</button>
+      <button class="btn" data-action="goHome">${icon('back')}Back</button>
+      <button class="btn btn-primary btn-lg" data-action="startGame">Start game</button>
     </div>
   </div>`;
 }
@@ -218,11 +217,11 @@ function renderPassScreen(idx){
       <div class="pass-name">${escapeHtml(p.name)}</div>
       <p class="pass-msg">${passContext(idx)}</p>
       ${needsPass ? `
-        <input type="password" class="pass-pin-input" placeholder="Enter your password" value="${escapeHtml(ui.passInput||'')}" data-i="${idx}" autofocus />
-        ${ui.passError ? `<p class="pass-error">Wrong password — try again.</p>` : ''}
+        <input type="password" class="pass-pin-input" aria-label="Your password" placeholder="Enter your password" value="${escapeHtml(ui.passInput||'')}" data-i="${idx}" autofocus />
+        ${ui.passError ? `<p class="pass-error">Wrong password. Try again.</p>` : ''}
         <button class="btn btn-primary btn-lg" data-action="submitPassInput" data-i="${idx}">Continue</button>
       ` : `
-        <button class="btn btn-primary btn-lg" data-action="continuePass" data-i="${idx}">I'm ${escapeHtml(p.name)} — Continue</button>
+        <button class="btn btn-primary btn-lg" data-action="continuePass" data-i="${idx}">I'm ${escapeHtml(p.name)}. Continue</button>
       `}
     </div>
   </div>`;
@@ -232,12 +231,13 @@ function renderGameOver(){
   const ranked = state.players.map((p,i)=>({p,i,vp:calcVP(i,{includeHidden:true})})).sort((a,b)=>b.vp-a.vp);
   return `
   <div class="gameover">
-    <h1>🏆 ${escapeHtml(w.name)} wins!</h1>
+    <span class="stamp">Game over</span>
+    <h1>${escapeHtml(w.name)} wins</h1>
     <p>with ${calcVP(state.winner,{includeHidden:true})} victory points</p>
     <div class="final-scores">
-      ${ranked.map(({p,i,vp})=>`<div class="score-row">${swatchHTML(p.color,i)}${escapeHtml(p.name)} — ${vp} VP</div>`).join('')}
+      ${ranked.map(({p,i,vp})=>`<div class="score-row">${swatchHTML(p.color,i)}${escapeHtml(p.name)}: ${vp} VP</div>`).join('')}
     </div>
-    <button class="btn btn-primary btn-lg" data-action="goHome">Back to Home</button>
+    <button class="btn btn-primary btn-lg" data-action="goHome">Back to home</button>
   </div>`;
 }
 
@@ -246,19 +246,21 @@ function findVertex(id){ return state.board.vertices.find(v=>v.id===id); }
 function renderTile(t){
   const pts = t.corners.map(cid=>{ const v=findVertex(cid); return `${v.x},${v.y}`; }).join(' ');
   if(state.tilesHidden){
-    return `<g class="tile"><polygon points="${pts}" fill="#5a4630" stroke="#241a12" stroke-width="2"/><polygon points="${pts}" fill="none" stroke="#f1e6c8" stroke-opacity=".25" stroke-width="1.5" transform="translate(${t.x} ${t.y}) scale(.82) translate(${-t.x} ${-t.y})"/><text x="${t.x}" y="${t.y+11}" text-anchor="middle" font-family="Cinzel,serif" font-size="32" fill="#f1e6c8" opacity=".55" style="pointer-events:none;">?</text></g>`;
+    return `<g class="tile"><polygon points="${pts}" fill="#4A5A63" stroke="#1E2B33" stroke-width="2"/><polygon points="${pts}" fill="none" stroke="#EEF0E8" stroke-opacity=".35" stroke-width="1.5" transform="translate(${t.x} ${t.y}) scale(.82) translate(${-t.x} ${-t.y})"/><text x="${t.x}" y="${t.y+11}" text-anchor="middle" font-family="Cinzel,serif" font-size="32" fill="#f1e6c8" opacity=".55" style="pointer-events:none;">?</text></g>`;
   }
   const key = t.resource===null ? 'desert' : t.resource;
   const info = TILE_VISUAL[key];
   const reveal = Date.now()<(ui.revealUntil||0);
   let s = `<g class="tile${reveal?' reveal':''}" ${reveal?`style="animation-delay:${state.board.tiles.indexOf(t)*40}ms"`:''}>`;
   const clickable = iAmCurrent() && state.uiMode==='move-robber' && !t.hasRobber;
-  s += `<polygon points="${pts}" fill="${info.color}" stroke="#241a12" stroke-width="2" ${clickable?`data-action="clickTile" data-tile-id="${t.id}" class="hit"`:''}/>`;
-  s += `<text x="${t.x}" y="${t.y-18}" class="tile-icon" text-anchor="middle" style="pointer-events:none;">${info.icon}</text>`;
+  s += `<polygon points="${pts}" fill="${info.color}" stroke="#1E2B33" stroke-width="2" ${clickable?`data-action="clickTile" data-tile-id="${t.id}" class="hit" tabindex="0" role="button" aria-label="Move the robber to this ${info.name} tile"`:''}/>`;
+  const gc = inkOn(info.color);
+  s += glyphAt(info.glyph, t.x, t.y-19, 22, gc);
+  s += `<text x="${t.x}" y="${t.y-31}" class="tile-name" text-anchor="middle" fill="${gc}" style="pointer-events:none;">${info.name}</text>`;
   if(t.number){
     const pipCount = 6-Math.abs(7-t.number);
     const isHot = (t.number===6||t.number===8);
-    s += `<circle cx="${t.x}" cy="${t.y+16}" r="15" fill="#f1e6c8" stroke="#241a12" stroke-width="1.5" style="pointer-events:none;"/>`;
+    s += `<circle cx="${t.x}" cy="${t.y+16}" r="15" fill="#EEF0E8" stroke="#1E2B33" stroke-width="1.5" style="pointer-events:none;"/>`;
     s += `<text x="${t.x}" y="${t.y+21}" text-anchor="middle" class="tile-number ${isHot?'hot':''}" style="pointer-events:none;">${t.number}</text>`;
     s += `<text x="${t.x}" y="${t.y+29}" text-anchor="middle" class="tile-pips ${isHot?'hot':''}" style="pointer-events:none;">${'●'.repeat(pipCount)}</text>`;
   }
@@ -273,10 +275,11 @@ function renderPort(e){
   const mx=(v1.x+v2.x)/2, my=(v1.y+v2.y)/2;
   const len = Math.sqrt(mx*mx+my*my)||1;
   const px = mx+mx/len*28, py = my+my/len*28;
-  const label = e.portType==='any' ? '3:1' : `${RESOURCE[e.portType].icon}2:1`;
+  const label = e.portType==='any' ? '3:1' : '2:1';
   return `<line x1="${mx}" y1="${my}" x2="${px}" y2="${py}" stroke="#2f6e6b" stroke-width="2" stroke-dasharray="3,3" style="pointer-events:none;"/>
   <circle cx="${px}" cy="${py}" r="17" fill="#2f6e6b" stroke="#f1e6c8" stroke-width="2" style="pointer-events:none;"/>
-  <text x="${px}" y="${py+4}" text-anchor="middle" class="port-label" style="pointer-events:none;">${label}</text>`;
+  ${e.portType==='any'?'':glyphAt(e.portType,px,py-6,11,'#fff')}
+  <text x="${px}" y="${py+(e.portType==='any'?4:11)}" text-anchor="middle" class="port-label" style="pointer-events:none;">${label}</text>`;
 }
 function renderEdge(e){
   const v1=findVertex(e.v1), v2=findVertex(e.v2);
@@ -286,8 +289,8 @@ function renderEdge(e){
     const color = state.players[e.road].color;
     s += `<line x1="${v1.x}" y1="${v1.y}" x2="${v2.x}" y2="${v2.y}" stroke="${color}" stroke-width="7" stroke-linecap="round" style="pointer-events:none;"/>`;
   } else if(buildable){
-    s += `<line x1="${v1.x}" y1="${v1.y}" x2="${v2.x}" y2="${v2.y}" stroke="transparent" stroke-width="20" data-action="clickEdge" data-edge-id="${e.id}" class="hit"/>`;
-    s += `<line x1="${v1.x}" y1="${v1.y}" x2="${v2.x}" y2="${v2.y}" stroke="#f1e6c8" stroke-width="5" stroke-linecap="round" class="pulse" style="pointer-events:none;"/>`;
+    s += `<line x1="${v1.x}" y1="${v1.y}" x2="${v2.x}" y2="${v2.y}" stroke="transparent" stroke-width="38" stroke-linecap="round" data-action="clickEdge" data-edge-id="${e.id}" class="hit" tabindex="0" role="button" aria-label="Build a road here"/>`;
+    s += `<line x1="${v1.x}" y1="${v1.y}" x2="${v2.x}" y2="${v2.y}" stroke="#EEF0E8" stroke-width="5" stroke-linecap="round" class="pulse" style="pointer-events:none;"/>`;
   }
   return s;
 }
@@ -299,12 +302,12 @@ function renderVertex(v){
     const color = state.players[v.building.playerIdx].color;
     s += v.building.type==='settlement' ? settlementSVG(v.x,v.y,color,v.building.playerIdx) : citySVG(v.x,v.y,color,v.building.playerIdx);
     if(canCity){
-      s += `<circle cx="${v.x}" cy="${v.y}" r="14" fill="transparent" stroke="#d9a441" stroke-width="3" class="pulse hit" data-action="clickVertexCity" data-vertex-id="${v.id}"/>`;
+      s += `<circle cx="${v.x}" cy="${v.y}" r="14" fill="none" stroke="#B8441A" stroke-width="3" class="pulse" style="pointer-events:none;"/><circle cx="${v.x}" cy="${v.y}" r="22" fill="transparent" class="hit" data-action="clickVertexCity" data-vertex-id="${v.id}" tabindex="0" role="button" aria-label="Upgrade this settlement to a city"/>`;
     }
   } else if(canSettle){
-    s += `<circle cx="${v.x}" cy="${v.y}" r="11" fill="#f1e6c8" stroke="#d9a441" stroke-width="2.5" class="pulse hit" data-action="clickVertexSettlement" data-vertex-id="${v.id}"/>`;
+    s += `<circle cx="${v.x}" cy="${v.y}" r="11" fill="#EEF0E8" stroke="#B8441A" stroke-width="2.5" class="pulse" style="pointer-events:none;"/><circle cx="${v.x}" cy="${v.y}" r="22" fill="transparent" class="hit" data-action="clickVertexSettlement" data-vertex-id="${v.id}" tabindex="0" role="button" aria-label="Build a settlement here"/>`;
   } else {
-    s += `<circle cx="${v.x}" cy="${v.y}" r="3.5" fill="#241a12" opacity="0.18" style="pointer-events:none;"/>`;
+    s += `<circle cx="${v.x}" cy="${v.y}" r="3.5" fill="#1E2B33" opacity="0.18" style="pointer-events:none;"/>`;
   }
   return s;
 }
@@ -327,13 +330,13 @@ function renderBoardSVG(){
 /* ============================= RENDER: HAND / PANELS ============================= */
 function renderResourceRow(p){
   return `<div class="resource-row">
-    ${Object.keys(RESOURCE).map(r=>`<div class="res-chip"><span class="res-icon">${RESOURCE[r].icon}</span><span>${p.resources[r]}</span></div>`).join('')}
+    ${Object.keys(RESOURCE).map(r=>`<div class="res-chip" title="${RESOURCE[r].label}">${resIcon(r)}<span>${p.resources[r]}</span><span class="sr-only">${RESOURCE[r].label}</span></div>`).join('')}
   </div>`;
 }
 function renderDevCard(c, playable){
-  if(c.type==='vp') return `<div class="devcard vp-card">${DEV_LABELS.vp} (hidden)</div>`;
+  if(c.type==='vp') return `<div class="devcard vp-card">${devLabel('vp')} (hidden)</div>`;
   const enabled = playable && iAmCurrent() && state.phase==='turn' && !state.turn.devCardPlayedThisTurn && (state.uiMode==='idle');
-  return `<div class="devcard">${DEV_LABELS[c.type]}${enabled?`<button class="btn btn-sm" data-action="playDevCard" data-card-id="${c.id}" data-card-type="${c.type}">Play</button>`:''}</div>`;
+  return `<div class="devcard">${devLabel(c.type)}${enabled?`<button class="btn btn-sm" data-action="playDevCard" data-card-id="${c.id}" data-card-type="${c.type}">Play</button>`:''}</div>`;
 }
 function renderSetupPanel(){
   const p = state.players[viewerIdx()];
@@ -341,10 +344,10 @@ function renderSetupPanel(){
   const hint = !mine ? `Waiting for ${escapeHtml(state.players[state.currentPlayerIdx].name)} to place…`
     : (state.setup.subphase==='settlement' ? 'Tap a highlighted point on the board to place a settlement.' : 'Now tap a highlighted road to connect it.');
   return `<div class="panel">
-    <h3 style="color:${p.color}">${escapeHtml(p.name)}</h3>
+    <h3>${swatchHTML(p.color,viewerIdx())} ${escapeHtml(p.name)}</h3>
     ${renderResourceRow(p)}
     <p class="muted">${hint}</p>
-    ${state.tilesHidden ? `<p class="muted">🙈 The tiles are hidden — ${state.hideMode==='first'?'they flip once everyone has placed a first settlement':'they flip when setup is complete'}.</p>` : ''}
+    ${state.tilesHidden ? `<p class="muted">${icon('hidden')} The tiles are hidden. ${state.hideMode==='first'?'They flip once everyone has placed a first settlement':'They flip when setup is complete'}.</p>` : ''}
   </div>`;
 }
 const BANNER_TEXT = {
@@ -363,7 +366,7 @@ function renderBanner(){
         : state.phase==='setup' ? `${w} is placing${state.tilesHidden?' blind':''}…` : `Waiting for ${w}…`;
     if(state.online && !state.online.connected[actor]) msg += ' (offline)';
   } else if(state.phase==='setup'){
-    msg = (state.setup.subphase==='settlement' ? `${state.players[state.currentPlayerIdx].name}, place a settlement.` : 'Now connect it with a road.') + (state.tilesHidden?' 🙈':'');
+    msg = (state.setup.subphase==='settlement' ? `${state.players[state.currentPlayerIdx].name}, place a settlement.` : 'Now connect it with a road.') + (state.tilesHidden?' (tiles are hidden)':'');
   } else if(BANNER_TEXT[state.uiMode]){
     msg = BANNER_TEXT[state.uiMode];
     showCancel = state.uiMode==='build-road' || state.uiMode==='build-settlement' || state.uiMode==='build-city';
@@ -384,8 +387,8 @@ function renderHandPanel(){
   return `
   <div class="panel hand-panel">
     <div class="dice-row">
-      ${state.turn.dice ? `<div class="die">${state.turn.dice[0]}</div><div class="die">${state.turn.dice[1]}</div>` : '<div class="die-placeholder">🎲 🎲</div>'}
-      <button class="btn ${canRoll?'btn-primary':'btn-disabled'}" data-action="rollDice" ${canRoll?'':'disabled'}>Roll Dice</button>
+      ${state.turn.dice ? dieSVG(state.turn.dice[0])+dieSVG(state.turn.dice[1]) : `<div class="die-placeholder">${icon('dice')}${icon('dice')}</div>`}
+      <button class="btn ${canRoll?'btn-primary':'btn-disabled'}" data-action="rollDice" ${canRoll?'':'disabled'}>Roll dice</button>
     </div>
     ${renderResourceRow(p)}
     <div class="devcards-row">
@@ -394,12 +397,12 @@ function renderHandPanel(){
       ${p.newDevCards.map(c=>renderDevCard(c,false)).join('')}
     </div>
     <div class="actions-grid">
-      <button class="btn ${canBuildRoad?'':'btn-disabled'}" data-action="startBuildRoad" ${canBuildRoad?'':'disabled'}>🛤️ Road (${costStr(COSTS.road)})</button>
-      <button class="btn ${canBuildSettlement?'':'btn-disabled'}" data-action="startBuildSettlement" ${canBuildSettlement?'':'disabled'}>🏠 Settlement</button>
-      <button class="btn ${canBuildCity?'':'btn-disabled'}" data-action="startBuildCity" ${canBuildCity?'':'disabled'}>🏛️ City</button>
-      <button class="btn ${canBuyDev?'':'btn-disabled'}" data-action="buyDevCard" ${canBuyDev?'':'disabled'}>🃏 Dev Card</button>
-      <button class="btn ${canTrade?'':'btn-disabled'}" data-action="openTradeChooser" ${canTrade?'':'disabled'}>🔁 Trade</button>
-      <button class="btn btn-accent ${canEnd?'':'btn-disabled'}" data-action="endTurn" ${canEnd?'':'disabled'}>✅ End Turn</button>
+      <button class="btn ${canBuildRoad?'':'btn-disabled'}" data-action="startBuildRoad" ${canBuildRoad?'':'disabled'}>${icon('road')}<span>Road<small class="cost">${costStr(COSTS.road)}</small></span></button>
+      <button class="btn ${canBuildSettlement?'':'btn-disabled'}" data-action="startBuildSettlement" ${canBuildSettlement?'':'disabled'}>${icon('settlement')}<span>Settlement<small class="cost">${costStr(COSTS.settlement)}</small></span></button>
+      <button class="btn ${canBuildCity?'':'btn-disabled'}" data-action="startBuildCity" ${canBuildCity?'':'disabled'}>${icon('city')}<span>City<small class="cost">${costStr(COSTS.city)}</small></span></button>
+      <button class="btn ${canBuyDev?'':'btn-disabled'}" data-action="buyDevCard" ${canBuyDev?'':'disabled'}>${icon('devcard')}<span>Dev card<small class="cost">${costStr(COSTS.dev)}</small></span></button>
+      <button class="btn ${canTrade?'':'btn-disabled'}" data-action="openTradeChooser" ${canTrade?'':'disabled'}>${icon('trade')}Trade</button>
+      <button class="btn btn-accent ${canEnd?'':'btn-disabled'}" data-action="endTurn" ${canEnd?'':'disabled'}>${icon('check')}End turn</button>
     </div>
   </div>`;
 }
@@ -412,11 +415,11 @@ function renderPlayersStrip(){
       return `<div class="player-chip ${isCurrent?'current':''}" style="--pc:${p.color}">
         ${swatchHTML(p.color,i)}
         <span>${escapeHtml(p.name)}</span>
-        ${state.online?`<span class="conn ${state.online.connected[i]?'on':''}"></span>`:''}<span class="pc-stat">🏆${vp}</span>
-        <span class="pc-stat">🎴${cards}</span>
-        ${p.knightsPlayed>0?`<span class="pc-stat">⚔️${p.knightsPlayed}</span>`:''}
-        ${state.longestRoadHolder===i?`<span class="pc-badge" title="Longest Road">🛤️</span>`:''}
-        ${state.largestArmyHolder===i?`<span class="pc-badge" title="Largest Army">⚔️</span>`:''}
+        ${state.online?`<span class="conn ${state.online.connected[i]?'on':''}" title="${state.online.connected[i]?'Connected':'Offline'}"></span><span class="sr-only">${state.online.connected[i]?'Connected':'Offline'}</span>`:''}<span class="pc-stat" title="Victory points">${icon('trophy','Victory points')}${vp}</span>
+        <span class="pc-stat" title="Cards in hand">${icon('cards','Cards in hand')}${cards}</span>
+        ${p.knightsPlayed>0?`<span class="pc-stat" title="Knights played">${icon('knight','Knights played')}${p.knightsPlayed}</span>`:''}
+        ${state.longestRoadHolder===i?`<span class="pc-badge" title="Longest Road">${icon('road','Longest Road')}</span>`:''}
+        ${state.largestArmyHolder===i?`<span class="pc-badge" title="Largest Army">${icon('knight','Largest Army')}</span>`:''}
       </div>`;
     }).join('')}
   </div>`;
@@ -433,9 +436,9 @@ function renderTradeChooserOverlay(){
   return `<div class="overlay-backdrop">
     <div class="overlay-card">
       <h3>Trade</h3>
-      <button class="btn btn-block" data-action="setUiMode" data-mode="trade-bank">⚓ Trade with Bank / Port</button>
-      <button class="btn btn-block" data-action="setUiMode" data-mode="trade-build">🤝 Trade with a Player</button>
-      <button class="btn btn-ghost" data-action="setUiMode" data-mode="idle">Cancel</button>
+      <button class="btn btn-block" data-action="setUiMode" data-mode="trade-bank">${icon('anchor')}Trade with the bank or a harbour</button>
+      <button class="btn btn-block" data-action="setUiMode" data-mode="trade-build">${icon('person')}Trade with a player</button>
+      <button class="btn" data-action="setUiMode" data-mode="idle">Cancel</button>
     </div>
   </div>`;
 }
@@ -450,12 +453,12 @@ function renderBankTradeOverlay(){
       <h3>Trade with Bank</h3>
       <div class="trade-row">
         <label>Give</label>
-        <select data-action="setBankGive">${Object.keys(RESOURCE).map(r=>`<option value="${r}" ${ui.bank.give===r?'selected':''}>${RESOURCE[r].icon} ${RESOURCE[r].label} — you have ${p.resources[r]}</option>`).join('')}</select>
+        <select data-action="setBankGive">${Object.keys(RESOURCE).map(r=>`<option value="${r}" ${ui.bank.give===r?'selected':''}>${resIcon(r)} ${RESOURCE[r].label} — you have ${p.resources[r]}</option>`).join('')}</select>
       </div>
       <div class="rate-note">Your rate for this resource: ${rate}:1</div>
       <div class="trade-row">
         <label>Receive</label>
-        <select data-action="setBankGet">${Object.keys(RESOURCE).map(r=>`<option value="${r}" ${ui.bank.get===r?'selected':''}>${RESOURCE[r].icon} ${RESOURCE[r].label} — bank has ${state.bank[r]}</option>`).join('')}</select>
+        <select data-action="setBankGet">${Object.keys(RESOURCE).map(r=>`<option value="${r}" ${ui.bank.get===r?'selected':''}>${resIcon(r)} ${RESOURCE[r].label} — bank has ${state.bank[r]}</option>`).join('')}</select>
       </div>
       <div class="qty-stepper"><span>Amount</span><button data-action="bankQty" data-d="-1">−</button><span>${ui.bank.qty}</span><button data-action="bankQty" data-d="1">+</button></div>
       <p>You give <b>${totalGive} ${RESOURCE[ui.bank.give].label}</b> to receive <b>${ui.bank.qty} ${RESOURCE[ui.bank.get].label}</b>.</p>
@@ -466,7 +469,7 @@ function renderBankTradeOverlay(){
 }
 function renderStepper(bucket, res, max){
   const val = (ui[bucket] && ui[bucket][res]) || 0;
-  return `<div class="stepper-row"><span class="res-icon">${RESOURCE[res].icon}</span><button data-action="stepTrade" data-bucket="${bucket}" data-res="${res}" data-d="-1">−</button><span>${val}</span><button data-action="stepTrade" data-bucket="${bucket}" data-res="${res}" data-d="1">+</button></div>`;
+  return `<div class="stepper-row"><span class="res-icon">${resIcon(res)}</span><button data-action="stepTrade" data-bucket="${bucket}" data-res="${res}" data-d="-1">−</button><span>${val}</span><button data-action="stepTrade" data-bucket="${bucket}" data-res="${res}" data-d="1">+</button></div>`;
 }
 function renderTradeBuildOverlay(){
   ui.tradeGive = ui.tradeGive || {};
@@ -495,8 +498,8 @@ function renderTradeBuildOverlay(){
 function renderTradeResponseOverlay(){
   const t = state.pendingTrade;
   const from = state.players[t.fromIdx], to = state.players[t.toIdx];
-  const giveStr = Object.entries(t.give).map(([r,n])=>`${n} ${RESOURCE[r].icon}`).join(' ');
-  const getStr = Object.entries(t.get).map(([r,n])=>`${n} ${RESOURCE[r].icon}`).join(' ');
+  const giveStr = Object.entries(t.give).map(([r,n])=>`${n} ${resIcon(r)}`).join(' ');
+  const getStr = Object.entries(t.get).map(([r,n])=>`${n} ${resIcon(r)}`).join(' ');
   const canAccept = hasResources(to, t.get);
   return `<div class="overlay-backdrop">
     <div class="overlay-card">
@@ -523,7 +526,7 @@ function renderDiscardOverlay(){
       <h3>${escapeHtml(p.name)} must discard ${required} card${required===1?'':'s'}</h3>
       ${Object.keys(RESOURCE).map(r=>{
         const val = ui.discard[r]||0;
-        return `<div class="stepper-row"><span class="res-icon">${RESOURCE[r].icon}</span><button data-action="stepDiscard" data-res="${r}" data-d="-1">−</button><span>${val} / ${p.resources[r]}</span><button data-action="stepDiscard" data-res="${r}" data-d="1">+</button></div>`;
+        return `<div class="stepper-row"><span class="res-icon">${resIcon(r)}</span><button data-action="stepDiscard" data-res="${r}" data-d="-1">−</button><span>${val} / ${p.resources[r]}</span><button data-action="stepDiscard" data-res="${r}" data-d="1">+</button></div>`;
       }).join('')}
       <p>Selected: ${selected} / ${required}</p>
       <button class="btn btn-primary ${selected===required?'':'btn-disabled'}" ${selected===required?'':'disabled'} data-action="doConfirmDiscard">Discard</button>
@@ -540,7 +543,7 @@ function renderMonopolyOverlay(){
   return `<div class="overlay-backdrop"><div class="overlay-card">
     <h3>Monopoly — choose a resource</h3>
     <p class="muted">Collect every card of that type from all other players.</p>
-    <div class="res-pick-grid">${Object.keys(RESOURCE).map(r=>`<button class="btn" data-action="resolveMonopolyAction" data-res="${r}">${RESOURCE[r].icon} ${RESOURCE[r].label}</button>`).join('')}</div>
+    <div class="res-pick-grid">${Object.keys(RESOURCE).map(r=>`<button class="btn" data-action="resolveMonopolyAction" data-res="${r}">${resIcon(r)} ${RESOURCE[r].label}</button>`).join('')}</div>
   </div></div>`;
 }
 function renderYoPOverlay(){
@@ -548,8 +551,8 @@ function renderYoPOverlay(){
   return `<div class="overlay-backdrop"><div class="overlay-card">
     <h3>Year of Plenty</h3>
     <p>Choose 2 resources to take from the bank for free.</p>
-    <p>Picked: ${ui.yop.map(r=>RESOURCE[r].icon).join(' ')||'none yet'} (${ui.yop.length}/2)</p>
-    <div class="res-pick-grid">${Object.keys(RESOURCE).map(r=>`<button class="btn" ${ui.yop.length>=2?'disabled':''} data-action="pickYoP" data-res="${r}">${RESOURCE[r].icon} ${RESOURCE[r].label}</button>`).join('')}</div>
+    <p>Picked: ${ui.yop.map(r=>resIcon(r)).join(' ')||'none yet'} (${ui.yop.length}/2)</p>
+    <div class="res-pick-grid">${Object.keys(RESOURCE).map(r=>`<button class="btn" ${ui.yop.length>=2?'disabled':''} data-action="pickYoP" data-res="${r}">${resIcon(r)} ${RESOURCE[r].label}</button>`).join('')}</div>
     ${ui.yop.length===2?`<button class="btn btn-primary btn-block" data-action="confirmYoPAction">Confirm</button>`:''}
     <button class="btn btn-ghost" data-action="resetYoP">Reset</button>
   </div></div>`;
@@ -559,14 +562,14 @@ function renderRefOverlay(){
     <div class="overlay-card">
       <h3>Quick Reference</h3>
       <table class="ref-table">
-        <tr><td>🛤️ Road</td><td>${costStr(COSTS.road)}</td></tr>
-        <tr><td>🏠 Settlement</td><td>${costStr(COSTS.settlement)}</td></tr>
-        <tr><td>🏛️ City</td><td>${costStr(COSTS.city)}</td></tr>
-        <tr><td>🃏 Dev Card</td><td>${costStr(COSTS.dev)}</td></tr>
+        <tr><td>${icon('road')}Road</td><td>${costStr(COSTS.road)}</td></tr>
+        <tr><td>${icon('settlement')}Settlement</td><td>${costStr(COSTS.settlement)}</td></tr>
+        <tr><td>${icon('city')}City</td><td>${costStr(COSTS.city)}</td></tr>
+        <tr><td>${icon('devcard')}Dev card</td><td>${costStr(COSTS.dev)}</td></tr>
       </table>
-      <p class="muted">Bank trade: 4:1 normally, 3:1 at any harbor (⚓), 2:1 at a matching resource harbor.</p>
+      <p class="muted">Bank trade: 4:1 normally, 3:1 at any harbour, 2:1 at a matching resource harbor.</p>
       <p class="muted">First to 10 victory points wins. Longest Road and Largest Army are each worth 2 points.</p>
-      <button class="btn btn-ghost" data-action="toggleRef">Close</button>
+      <button class="btn" data-action="toggleRef">Close</button>
     </div>
   </div>`;
 }
@@ -576,20 +579,20 @@ function rulesSection(title, body){
 function renderRulesModal(){
   return `<div class="overlay-backdrop">
     <div class="overlay-card rules-card">
-      <div class="rules-header"><h2>How to Play</h2><button class="icon-btn" data-action="toggleRules">✕</button></div>
+      <div class="rules-header"><h2>How to play</h2><button class="icon-btn" data-action="toggleRules" aria-label="Close rules">${icon('close')}</button></div>
       <div class="rules-body">
-        ${rulesSection('🎯 Goal','Be the first to reach 10 victory points. You earn points from settlements and cities, from holding the Longest Road or Largest Army, and from Victory Point cards.')}
-        ${rulesSection('🗺️ The Board','The island is 19 hexagon tiles (37 when 5 to 8 people play), each producing one resource: 🌲 Lumber, 🧱 Brick, 🪨 Ore, 🌾 Grain, or 🐑 Wool. The desert produces nothing. Every tile has a number from 2–12; when the dice match it, everyone with a settlement or city touching that tile collects.')}
-        ${rulesSection('🏗️ Setup','Taking turns, each player places two settlements and two connecting roads. Your second settlement immediately hands you one of each resource it touches — that becomes your starting hand.')}
-        ${rulesSection('🎲 Your Turn','Roll two dice to produce resources for everyone. Then, in any order, you may trade, build, and buy development cards before ending your turn. You must roll before building or trading.')}
-        ${rulesSection('🏠 Building','A road costs '+costStr(COSTS.road)+' and must extend from one of your roads or settlements. A settlement costs '+costStr(COSTS.settlement)+', must connect to one of your roads, and needs at least two empty intersections between it and any other settlement. A city costs '+costStr(COSTS.city)+' and upgrades one of your settlements to collect double.')}
-        ${rulesSection('🦹 The Robber','Rolling a 7 moves the robber: anyone holding more than 7 cards discards half (rounded down), then you move the robber to any tile — blocking its production — and steal one random card from a player touching it.')}
-        ${rulesSection('🔁 Trading','Propose a trade with another player for anything you both agree to. Or trade with the bank at 4 of one resource for 1 of another — build a settlement on a harbor for a better rate, 3:1 for any resource or 2:1 for that harbor\u2019s specific resource.')}
-        ${rulesSection('🃏 Development Cards','Cost '+costStr(COSTS.dev)+' each. Knight moves the robber and steals a card, and counts toward Largest Army. Road Building gives 2 free roads. Year of Plenty gives you any 2 resources from the bank. Monopoly takes every card of one resource from all other players. Victory Point cards are worth 1 point automatically and stay hidden until you choose to reveal them by winning.')}
-        ${rulesSection('🏆 Longest Road &amp; Largest Army','The first player to build an unbroken chain of 5+ roads holds Longest Road (2 points) until someone builds a longer one. The first to play 3+ Knights holds Largest Army (2 points) until someone plays more.')}
-        ${rulesSection('🙈 Hidden Tiles (optional)','When enabled in the lobby, tiles start face-down so settlements are placed blind. They flip once everyone has placed their first settlement, or after all of setup, depending on the option chosen. In the second case the starting resources are handed out at the flip.')}
-        ${rulesSection('🌐 Online Rooms','One player hosts a room and shares the 5-letter code; up to 7 more players join from their own devices. The host\u2019s browser runs the game, so the host needs to keep the tab open. If you get disconnected, rejoin with the same code and name. In the same tab you get your seat back automatically; from another tab or device the host has to approve it.')}
-        ${rulesSection('🙈 Playing Fair','Only look at your own resources and development cards. When you are done with your turn, pass the device to the next player before they look at the screen.')}
+        ${rulesSection('Goal','Be the first to reach 10 victory points. You earn points from settlements and cities, from holding the Longest Road or Largest Army, and from Victory Point cards.')}
+        ${rulesSection('The Board','The island is 19 hexagon tiles (37 when 5 to 8 people play), each producing one resource: Lumber, Brick, Ore, Grain, or Wool. The desert produces nothing. Every tile has a number from 2–12; when the dice match it, everyone with a settlement or city touching that tile collects.')}
+        ${rulesSection('Setup','Taking turns, each player places two settlements and two connecting roads. Your second settlement immediately hands you one of each resource it touches — that becomes your starting hand.')}
+        ${rulesSection('Your Turn','Roll two dice to produce resources for everyone. Then, in any order, you may trade, build, and buy development cards before ending your turn. You must roll before building or trading.')}
+        ${rulesSection('Building','A road costs '+costStr(COSTS.road)+' and must extend from one of your roads or settlements. A settlement costs '+costStr(COSTS.settlement)+', must connect to one of your roads, and needs at least two empty intersections between it and any other settlement. A city costs '+costStr(COSTS.city)+' and upgrades one of your settlements to collect double.')}
+        ${rulesSection('The Robber','Rolling a 7 moves the robber: anyone holding more than 7 cards discards half (rounded down), then you move the robber to any tile — blocking its production — and steal one random card from a player touching it.')}
+        ${rulesSection('Trading','Propose a trade with another player for anything you both agree to. Or trade with the bank at 4 of one resource for 1 of another — build a settlement on a harbor for a better rate, 3:1 for any resource or 2:1 for that harbor\u2019s specific resource.')}
+        ${rulesSection('Development Cards','Cost '+costStr(COSTS.dev)+' each. Knight moves the robber and steals a card, and counts toward Largest Army. Road Building gives 2 free roads. Year of Plenty gives you any 2 resources from the bank. Monopoly takes every card of one resource from all other players. Victory Point cards are worth 1 point automatically and stay hidden until you choose to reveal them by winning.')}
+        ${rulesSection('Longest Road &amp; Largest Army','The first player to build an unbroken chain of 5+ roads holds Longest Road (2 points) until someone builds a longer one. The first to play 3+ Knights holds Largest Army (2 points) until someone plays more.')}
+        ${rulesSection('Hidden Tiles (optional)','When enabled in the lobby, tiles start face-down so settlements are placed blind. They flip once everyone has placed their first settlement, or after all of setup, depending on the option chosen. In the second case the starting resources are handed out at the flip.')}
+        ${rulesSection('Online Rooms','One player hosts a room and shares the 5-letter code; up to 7 more players join from their own devices. The host\u2019s browser runs the game, so the host needs to keep the tab open. If you get disconnected, rejoin with the same code and name. In the same tab you get your seat back automatically; from another tab or device the host has to approve it.')}
+        ${rulesSection('Playing Fair','Only look at your own resources and development cards. When you are done with your turn, pass the device to the next player before they look at the screen.')}
       </div>
     </div>
   </div>`;
@@ -617,26 +620,39 @@ function renderOverlays(){
   if(me && state.uiMode==='yearofplenty-pick') s+=renderYoPOverlay();
   if(ui.showRef) s+=renderRefOverlay();
   if(ui.leaveAsk) s+=renderLeaveOverlay();
-  if(net.role==='client' && net.status==='reconnecting') s+=`<div class="overlay-backdrop"><div class="overlay-card"><h3>Connection lost</h3><p>Trying to reconnect to the host…</p><button class="btn btn-block" data-action="leaveRoom">Leave room</button></div></div>`;
+  if(net.role==='client' && net.status==='reconnecting') s+=`<div class="overlay-backdrop"><div class="overlay-card"><h3>Connection lost</h3><p>Trying to reconnect to the host. If it keeps failing, your network may block peer-to-peer connections.</p><button class="btn btn-block" data-action="leaveRoom">Leave room</button></div></div>`;
   return s;
+}
+// Connection state: filled circle is good, hollow diamond is trouble, filled diamond is lost.
+function connChip(){
+  const st = net.status;
+  const [cls,txt] = net.role==='host' ? (st==='connected'?['ok','Hosting']:['warn','Starting'])
+    : st==='connected' ? ['ok','Connected']
+    : st==='reconnecting' ? ['warn','Reconnecting']
+    : st==='pending' ? ['warn','Waiting for host']
+    : st==='connecting' ? ['warn','Connecting']
+    : ['bad','Not connected'];
+  return `<span class="chip-conn ${cls}" role="status">${txt}</span>`;
 }
 function renderGame(){
   const p = state.players[state.currentPlayerIdx];
   const isSetup = state.phase==='setup';
+  const mine = iAmCurrent();
   return `
   <div class="game-shell">
     <div class="top-bar">
-      <span class="turn-indicator" style="--pc:${p.color}"><span class="dot" style="color:${inkOn(p.color)}">${seatMark(state.currentPlayerIdx)}</span>${escapeHtml(p.name)}'s turn</span>
-      ${net.active?`<span class="room-chip" data-action="copyCode" title="Room code">🌐 ${net.code}</span>`:''}
+      <a class="brand" href="../../">Browser Arcade</a>
+      <span class="turn-indicator ${(!net.active||mine)?'mine':''}" style="--pc:${p.color}"><span class="dot" style="color:${inkOn(p.color)}">${seatMark(state.currentPlayerIdx)}</span><span class="stamp">${net.active?(mine?'Your turn':'Waiting'):'Turn'}</span>${escapeHtml(p.name)}${net.active&&mine?'':'\u2019s turn'}</span>
+      ${net.active?`<button class="room-chip" data-action="copyCode" title="Copy room code" aria-label="Room ${net.code}. Copy room code">${icon('copy')}${net.code}</button>${connChip()}`:''}
       <div class="top-actions">
-        <button class="icon-btn" data-action="toggleRef" title="Cheat sheet">📋</button>
-        <button class="icon-btn" data-action="toggleRules" title="Rules">❓</button>
-        <button class="icon-btn" data-action="toggleSound" title="Sound">${ui.sound?'🔊':'🔇'}</button>
-        <button class="icon-btn" data-action="goHome" title="Save &amp; exit">🏠</button>
+        <button class="icon-btn" data-action="toggleRef" title="Cheat sheet" aria-label="Cheat sheet">${icon('list')}</button>
+        <button class="icon-btn" data-action="toggleRules" title="Rules" aria-label="Rules">${icon('help')}</button>
+        <button class="icon-btn" data-action="toggleSound" title="Sound effects" aria-label="Sound effects ${ui.sound?'on':'off'}" aria-pressed="${ui.sound}">${icon(ui.sound?'soundOn':'soundOff')}</button>
+        <button class="icon-btn" data-action="goHome" title="Save and exit" aria-label="Save and exit">${icon('home')}</button>
       </div>
     </div>
     <div class="board-area">
-      ${renderBoardSVG()}
+      <div class="board-scroll" tabindex="0" aria-label="Board. Scroll to pan.">${renderBoardSVG()}</div>
       ${renderBanner()}
     </div>
     <div class="side-panel">
@@ -655,7 +671,7 @@ function render(){
   const app = document.getElementById('app');
   let html='';
   if(state){
-    if(ui.wasHidden && !state.tilesHidden){ ui.revealUntil = Date.now()+1600; setTimeout(()=>toast('🗺️ The tiles are revealed!'),50); }
+    if(ui.wasHidden && !state.tilesHidden){ ui.revealUntil = Date.now()+1600; setTimeout(()=>toast('The tiles are revealed.'),50); }
     ui.wasHidden = !!state.tilesHidden;
   }
   if(ui.screen==='lobby'){
@@ -686,7 +702,7 @@ function render(){
 /* ============================= RENDER: ONLINE ============================= */
 function hideModeControl(cur, editable){
   const opts=[['off','Visible'],['first','Reveal after 1st round'],['all','Reveal after setup']];
-  return `<div class="hide-opt"><div class="hide-title">🙈 Tiles while placing settlements</div>
+  return `<div class="hide-opt"><div class="hide-title">Tiles while placing settlements</div>
     <div class="segmented seg-wrap">${opts.map(([k,l])=>`<button class="seg ${cur===k?'active':''}" ${editable?`data-action="setHideMode" data-m="${k}"`:'disabled'}>${l}</button>`).join('')}</div>
     <p class="lobby-hint" style="text-align:left;margin:.5em 0 0">${HIDE_HELP[cur]}</p></div>`;
 }
@@ -695,17 +711,20 @@ function ensureOnline(){
 }
 function renderOnlineMenu(){
   ensureOnline(); const O=ui.online;
-  return `<div class="lobby">
-    <h1>Play Online</h1>
-    <p class="lobby-hint">Everyone plays on their own device. One person hosts a room and shares the code.</p>
-    <div class="player-row"><input type="text" class="name-input online-name" placeholder="Your name" maxlength="16" value="${escapeHtml(O.name)}" /></div>
-    ${O.error?`<p class="pass-error" style="text-align:center">${escapeHtml(O.error)}</p>`:''}
-    <div class="online-block"><button class="btn btn-primary btn-lg btn-block" style="margin:0;text-align:center" data-action="createRoom">🏰 Host a new room</button></div>
-    <p class="lobby-hint" style="margin:0">— or join a friend —</p>
-    <div class="online-block"><input type="text" class="name-input online-code" placeholder="CODE" maxlength="5" value="${escapeHtml(O.code)}" autocapitalize="characters" /><button class="btn btn-accent" data-action="joinRoom">Join</button></div>
-    ${net.status==='connecting'?'<p class="lobby-hint">Connecting… this can take up to a few tries if the network is slow. Tap Back to cancel.</p>':''}
-    ${net.status==='pending'?'<p class="lobby-hint">The host has to approve you taking this seat. Waiting for their answer… Tap Back to cancel.</p>':''}
-    <div class="lobby-buttons"><button class="btn btn-ghost" data-action="goHome">Back</button></div>
+  return `<div class="titleblock"><a href="../../">Browser Arcade</a><span>Game of Trades</span><span>Online</span></div>
+  <div class="lobby">
+    <h1>Play online</h1>
+    <p class="lobby-hint">Everyone plays on their own device. One person hosts a room and shares the code or invite link. Online rooms are peer-to-peer, so the host has to keep their tab open.</p>
+    ${O.invited?`<p class="lobby-hint"><b>You were invited to room ${escapeHtml(O.code)}.</b> Enter your name and choose Join.</p>`:''}
+    <label for="onName">Your name</label>
+    <div class="player-row"><input id="onName" type="text" class="name-input online-name" placeholder="Your name" maxlength="16" value="${escapeHtml(O.name)}" autocomplete="nickname" /></div>
+    ${O.error?`<p class="msg-error" role="alert">${escapeHtml(O.error)}</p>`:''}
+    <div class="online-block"><button class="btn btn-primary btn-lg" data-action="createRoom">Host a new room</button></div>
+    <p class="lobby-hint" style="margin:0">Or join a friend's room:</p>
+    <div class="online-block"><label class="sr-only" for="onCode">Room code</label><input id="onCode" type="text" class="name-input online-code" placeholder="CODE" maxlength="5" value="${escapeHtml(O.code)}" autocapitalize="characters" autocomplete="off" spellcheck="false" /><button class="btn btn-accent" data-action="joinRoom">Join</button></div>
+    ${net.status==='connecting'?'<p class="lobby-hint" role="status">Connecting. This can take a few tries on a slow network. Choose Back to cancel.</p>':''}
+    ${net.status==='pending'?'<p class="lobby-hint" role="status">The host has to approve you taking this seat. Waiting for their answer. Choose Back to cancel.</p>':''}
+    <div class="lobby-buttons"><button class="btn" data-action="goHome">${icon('back')}Back</button></div>
   </div>`;
 }
 function renderOnlineRoom(){
@@ -713,24 +732,29 @@ function renderOnlineRoom(){
   const players = (net.lobby&&net.lobby.players)||[];
   const hide = (net.lobby&&net.lobby.hide)||'off';
   const link = /^https?:/.test(location.protocol);
-  return `<div class="lobby">
+  const need = Math.max(0,3-players.length);
+  return `<div class="titleblock"><a href="../../">Browser Arcade</a><span>Game of Trades</span>${connChip()}</div>
+  <div class="lobby">
     <h1>Room</h1>
-    <div class="room-code" data-action="copyCode" title="Tap to copy">${net.code}</div>
-    <p class="lobby-hint">Friends choose <b>Play Online → Join</b> and enter this code. ${link?'<button class="link-btn" data-action="copyLink">Copy invite link</button>':''}</p>
+    <button class="room-code" style="width:100%" data-action="copyCode" aria-label="Room code ${net.code.split('').join(' ')}. Copy it">${net.code}</button>
+    <div class="online-block">
+      <button class="btn" data-action="copyCode">${icon('copy')}Copy code</button>
+      ${link?`<button class="btn" data-action="copyLink">${icon('link')}Copy invite link</button>`:''}
+    </div>
+    <p class="lobby-hint">${host?(need?`Waiting for players. ${need} more needed. Send them the invite link or the code. Keep this tab open while you play.`:`${players.length} players here. Start when everyone has joined. Keep this tab open while you play.`):'You are in. The host starts the game once everyone has joined.'}</p>
     <div class="lobby-players">
       ${players.map((p,i)=>`<div class="player-row">${swatchHTML(p.color,i)}
-        <b style="flex:1;color:var(--ink)">${escapeHtml(p.name)}${i===net.mySeat?' (you)':''}${i===0?' 👑':''}</b>
-        ${i===net.mySeat?`<div class="color-picker">${COLOR_CHOICES.map(c=>`<button class="color-dot ${p.color===c?'sel':''}" style="background:${c}" data-action="setOnlineColor" data-color="${c}" title="${COLOR_NAMES[c]}"></button>`).join('')}</div>`:''}
-        <span class="conn ${p.on?'on':''}"></span></div>`).join('')}
+        <b style="flex:1">${escapeHtml(p.name)}${i===net.mySeat?' (you)':''}${i===0?' (host)':''}</b>
+        ${i===net.mySeat?`<div class="color-picker">${COLOR_CHOICES.map(c=>`<button class="color-dot ${p.color===c?'sel':''}" style="background:${c}" data-action="setOnlineColor" data-color="${c}" title="${COLOR_NAMES[c]}" aria-label="${COLOR_NAMES[c]}"></button>`).join('')}</div>`:''}
+        <span class="conn ${p.on?'on':''}"></span><span class="seat-state">${p.on?'Connected':'Offline'}</span></div>`).join('')}
     </div>
     ${hideModeControl(hide, host)}
     <div class="lobby-buttons">
-      <button class="btn btn-ghost" data-action="leaveRoom">Leave</button>
-      ${host ? `<button class="btn btn-primary btn-lg ${players.length<3?'btn-disabled':''}" ${players.length<3?'disabled':''} data-action="startOnlineGame">${players.length<3?`Need ${3-players.length} more`:`Start (${players.length} players)`}</button>` : `<span class="lobby-hint">Waiting for the host to start…</span>`}
+      <button class="btn" data-action="leaveRoom">Leave room</button>
+      ${host ? `<button class="btn btn-primary btn-lg ${players.length<3?'btn-disabled':''}" ${players.length<3?'disabled':''} data-action="startOnlineGame">${players.length<3?`Need ${need} more`:`Start (${players.length} players)`}</button>` : `<span class="muted">Waiting for the host to start.</span>`}
     </div>
   </div>`;
 }
-
 /* ============================= ACTIONS ============================= */
 function setColorAction(i, color){
   const L = ui.lobby;
@@ -845,7 +869,7 @@ function handleAction(action, ds){
     case 'approveSeat': if(net.host) net.host.approve(+ds.id); break;
     case 'denySeat': if(net.host) net.host.deny(+ds.id); break;
     case 'copyCode': if(navigator.clipboard) navigator.clipboard.writeText(net.code).then(()=>toast('Room code copied')).catch(()=>{}); break;
-    case 'copyLink': if(navigator.clipboard) navigator.clipboard.writeText(location.href.split('#')[0]+'#join='+net.code).then(()=>toast('Invite link copied')).catch(()=>{}); break;
+    case 'copyLink': if(navigator.clipboard) navigator.clipboard.writeText(location.href.split('#')[0].split('?')[0]+'?room='+net.code).then(()=>toast('Invite link copied')).catch(()=>{}); break;
   }
   render();
 }
@@ -975,6 +999,7 @@ function bindEvents(){
     }
   };
   app.onkeydown = (e)=>{
+    if((e.key==='Enter'||e.key===' ') && e.target.getAttribute && e.target.getAttribute('role')==='button' && e.target.dataset.action){ e.preventDefault(); handleAction(e.target.dataset.action, e.target.dataset); return; }
     if(e.key==='Enter' && e.target.classList.contains('pass-pin-input')){
       submitPassInputAction(+e.target.dataset.i);
       render();
@@ -984,9 +1009,9 @@ function bindEvents(){
 
 /* ============================= INIT ============================= */
 function init(){
-  try{ ui.sound = localStorage.getItem('got_sound')!=='0'; }catch(e){ ui.sound=true; }
-  const jm = location.hash.match(/join=([A-Za-z0-9]{5})/);
-  if(jm){ ensureOnline(); ui.online.code=jm[1].toUpperCase(); ui.screen='online-menu'; }
+  try{ ui.sound = localStorage.getItem('got_sound')==='1'; }catch(e){ ui.sound=false; }
+  const jm = location.search.match(/[?&]room=([A-Za-z0-9]{5})(?![A-Za-z0-9])/) || location.hash.match(/join=([A-Za-z0-9]{5})/);
+  if(jm){ ensureOnline(); ui.online.code=jm[1].toUpperCase(); ui.online.invited=true; ui.screen='online-menu'; }
   document.addEventListener('visibilitychange',()=>{
     if(!document.hidden && net.client) net.client.nudge();
   });

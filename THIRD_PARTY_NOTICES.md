@@ -8,14 +8,8 @@
 - The file embeds the names and email addresses of upstream contributors, as published by the PeerJS project. It is kept byte-for-byte as released.
 
 ### IBM Plex Sans, Plex Sans Condensed and Plex Mono
-- Files: `shared/ui/fonts/*.woff2`, Latin subsets as packaged by Fontsource, unmodified. Used by the arcade landing page.
+- Files: `shared/ui/fonts/*.woff2`, Latin subsets as packaged by Fontsource, unmodified. Used by the landing page and both games. All fonts are self-hosted, so no page loads anything from a font service.
 - Licence: SIL Open Font License 1.1, copyright IBM Corp. The licence text is in `shared/ui/fonts/LICENSE-IBM-Plex-OFL.txt`.
-
-## Loaded at run time (not included in this repository)
-
-### Fonts: Cinzel and Inter (Game of Trades)
-- Loaded from Google Fonts when the page opens, so the visitor's browser contacts Google to fetch them.
-- Both are licensed under the SIL Open Font License 1.1.
 
 ## External services used by online play
 

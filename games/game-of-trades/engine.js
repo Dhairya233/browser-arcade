@@ -31,11 +31,11 @@ function shuffle(arr){
 }
 
 const RESOURCE = {
-  wood:  {label:'Lumber', icon:'🌲', color:'#3f6b3f'},
-  brick: {label:'Brick',  icon:'🧱', color:'#b5502f'},
-  ore:   {label:'Ore',    icon:'🪨', color:'#8a8782'},
-  wheat: {label:'Grain',  icon:'🌾', color:'#d9a441'},
-  sheep: {label:'Wool',   icon:'🐑', color:'#9dbd6f'}
+  wood:  {label:'Lumber', color:'#3f6b3f'},
+  brick: {label:'Brick', color:'#b5502f'},
+  ore:   {label:'Ore', color:'#8a8782'},
+  wheat: {label:'Grain', color:'#d9a441'},
+  sheep: {label:'Wool', color:'#9dbd6f'}
 };
 
 const RESOURCE_TILE_POOL = [
@@ -240,7 +240,7 @@ function grantInitialResources(player, vid){
 }
 function revealTiles(){
   state.tilesHidden = false;
-  log('🗺️ The tiles are revealed!');
+  log('The tiles are revealed!');
   sound('dice');
   (state.setup.deferred||[]).forEach(d=>grantInitialResources(state.players[d.p], d.vid));
   state.setup.deferred = [];
@@ -590,7 +590,7 @@ function checkWin(){
       state.phase='gameover';
       state.winner=i;
       sound('win');
-      log(`🏆 ${p.name} wins with ${vp} victory points!`);
+      log(`${p.name} wins with ${vp} victory points!`);
     }
   });
 }
