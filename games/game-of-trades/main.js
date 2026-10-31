@@ -9,6 +9,7 @@ import {peerOptions} from '../../shared/net/peer-options.js';
 import {createTokenStore} from '../../shared/net/ids.js';
 import {describeNetError} from '../../shared/net/protocol.js';
 import {icon, glyphAt, dieSVG} from './icons.js';
+import {keepScreenOn} from '../../shared/ui/wake-lock.js';
 
 /* The rules live in engine.js. This file draws the game, handles input and runs the network. */
 
@@ -184,7 +185,7 @@ function renderLobby(){
         ${Array.from({length:MAX_PLAYERS-2},(_,i)=>i+3).map(n=>`<button class="seg ${L.numPlayers===n?'active':''}" data-action="setNumPlayers" data-n="${n}">${n}</button>`).join('')}
       </div>
     </div>
-    <p class="muted lobby-hint">Add a password for a player if you want to stop others peeking at their cards when the device is passed to them. Leave it blank to skip that.</p>
+    <p class="muted lobby-hint">Add a password for a player if you want to stop others peeking at their cards when the device is passed to them. It only keeps casual peeking away: a saved game keeps passwords unencrypted in this browser. Leave it blank to skip.</p>
     <div class="lobby-players">
       ${L.players.slice(0,L.numPlayers).map((p,i)=>`
         <div class="player-row">
@@ -357,7 +358,7 @@ const BANNER_TEXT = {
   'move-robber':'Choose a tile to move the robber to.'
 };
 function renderBanner(){
-  let msg=null, showCancel=false;
+  let msg=null, showCancel=false, showWithdraw=false;
   const actor = requiredViewer();
   if(net.active && actor!=null && actor!==net.mySeat){
     const w = state.players[actor].name;
@@ -365,6 +366,7 @@ function renderBanner(){
         : state.uiMode==='discard' ? `Waiting for ${w} to discard…`
         : state.phase==='setup' ? `${w} is placing${state.tilesHidden?' blind':''}…` : `Waiting for ${w}…`;
     if(state.online && !state.online.connected[actor]) msg += ' (offline)';
+    showWithdraw = !!(state.pendingTrade&&state.pendingTrade.status==='pending'&&state.pendingTrade.fromIdx===net.mySeat);
   } else if(state.phase==='setup'){
     msg = (state.setup.subphase==='settlement' ? `${state.players[state.currentPlayerIdx].name}, place a settlement.` : 'Now connect it with a road.') + (state.tilesHidden?' (tiles are hidden)':'');
   } else if(BANNER_TEXT[state.uiMode]){
@@ -372,7 +374,7 @@ function renderBanner(){
     showCancel = state.uiMode==='build-road' || state.uiMode==='build-settlement' || state.uiMode==='build-city';
   }
   if(!msg) return '';
-  return `<div class="board-banner">${escapeHtml(msg)}${showCancel?` <button class="link-btn" data-action="cancelBuild">Cancel</button>`:''}</div>`;
+  return `<div class="board-banner">${escapeHtml(msg)}${showCancel?` <button class="link-btn" data-action="cancelBuild">Cancel</button>`:''}${showWithdraw?` <button class="link-btn" data-action="cancelTrade">Withdraw offer</button>`:''}</div>`;
 }
 function renderHandPanel(){
   const p = state.players[viewerIdx()];
@@ -427,7 +429,7 @@ function renderPlayersStrip(){
 function renderLog(){
   return `<div class="log-panel">
     <div class="log-title">Game Log</div>
-    <div class="log-entries">${state.log.slice(-14).slice().reverse().map(l=>`<div class="log-entry">${l}</div>`).join('')}</div>
+    <div class="log-entries">${state.log.slice(-14).slice().reverse().map(l=>`<div class="log-entry">${escapeHtml(l)}</div>`).join('')}</div>
   </div>`;
 }
 
@@ -882,6 +884,7 @@ function resetNet(){
 }
 // Close whatever is open. Detach first so late callbacks from the old room are ignored.
 function stopNet(){
+  keepScreenOn(false);
   const {host, client, transport} = net;
   net.host = null; net.client = null; net.transport = null;
   if(host) host.close();
@@ -925,7 +928,7 @@ async function createRoom(name){
   try{
     const code = await host.start();
     if(net.host!==host) return;
-    net.code=code; net.status='connected'; ui.screen='online-room'; render();
+    net.code=code; net.status='connected'; ui.screen='online-room'; keepScreenOn(true); render();
   }catch(err){ if(net.host===host) netFail(describeNetError(err)); }
 }
 function hostUpdate(host, snap){
@@ -946,8 +949,8 @@ function joinRoom(code,name){
   const client = createClient({
     transport:net.transport, code, name:cleanName(name), token:tokens.getOrCreate(code),
     onStatus:(st,detail)=>clientStatus(client, st, detail),
-    onLobby:m=>{ if(net.client!==client) return; net.lobby={players:m.seats, hide:m.settings.hideMode}; net.mySeat=m.you; ui.screen='online-room'; render(); },
-    onState:m=>{ if(net.client!==client) return; showView(m.view, m.online, m.you); deliver(m.events); render(); }
+    onLobby:m=>{ if(net.client!==client) return; net.lobby={players:m.seats, hide:m.settings.hideMode}; net.mySeat=m.you; ui.screen='online-room'; keepScreenOn(true); render(); },
+    onState:m=>{ if(net.client!==client) return; keepScreenOn(true); showView(m.view, m.online, m.you); deliver(m.events); render(); }
   });
   net.client = client;
   client.connect();

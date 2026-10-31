@@ -267,3 +267,29 @@ test('actions before the game starts are refused', async () => {
   room.clients[0].act({ type: 'add', n: 1 }); await flush();
   assert.deepEqual(room.clients[0].log.nacks, ['The game has not started yet.']);
 });
+
+test('hostile payloads from a seated player: deep nesting, prototype pollution and unseen-character names do nothing', async () => {
+  const room = await buildRoom(3, { start: true });
+  const me = room.clients[0];
+  const send = s => me.log.endpoint.send(typeof s === 'string' ? s : JSON.stringify(s));
+  const deep = '['.repeat(100000) + ']'.repeat(100000);
+  send(`{"t":"act","action":${deep}}`);                                   // JSON that nests far too deeply
+  send('{"t":"act","action":{"__proto__":{"polluted":true},"type":"add","n":1}}');
+  send('{"t":"hello","v":1,"token":"' + makeToken() + '","name":{"__proto__":{"polluted":true}}}');
+  send('{"t":"pref","color":{"__proto__":{"polluted":true}}}');
+  await flush();
+  assert.equal(({}).polluted, undefined, 'Object.prototype must stay clean');
+  assert.equal(room.host.act({ type: 'add', n: 1 }).ok, true, 'the host still works');
+});
+
+test('lobby names: blank-looking and text-direction tricks cannot make two players look alike', async () => {
+  const room = await buildRoom(1);
+  const a = await joinClient({ net: room.net, clock: room.clock, code: room.code, name: '​‍ ' });
+  const b = await joinClient({ net: room.net, clock: room.clock, code: room.code, name: 'Al‮ice' });
+  const c = await joinClient({ net: room.net, clock: room.clock, code: room.code, name: 'Alice' });
+  await flush();
+  const names = room.hostUpdates[room.hostUpdates.length - 1].seats.map(s => s.name);
+  assert.equal(new Set(names.map(n => n.toLowerCase())).size, names.length, 'every seat has a distinct name: ' + names.join(' | '));
+  assert.ok(names.every(n => n.trim() && !/[​-‏‪-‮]/.test(n)), 'and a visible one: ' + names.join(' | '));
+  void a; void b; void c;
+});

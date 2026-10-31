@@ -3,6 +3,7 @@ import { MAPW, MAPH, REVEAL_ROUNDS, COLORS } from './engine.js';
 import { MAP, shadowHuntAdapter } from './adapter.js';
 import { ringKind, ringDashAttr, innerRingSVG } from './look.js';
 import { icon } from './icons.js';
+import { keepScreenOn } from '../../shared/ui/wake-lock.js';
 import { createHost } from '../../shared/net/host.js';
 import { createClient } from '../../shared/net/client.js';
 import { createPeerJsTransport } from '../../shared/net/transport-peerjs.js';
@@ -12,7 +13,6 @@ import { cleanName, describeNetError } from '../../shared/net/protocol.js';
 
 /* Rules live in engine.js, who-may-see-what in adapter.js, the network in shared/net/. This file draws the game and handles input. */
 const { stations, edges } = MAP;
-function neighborsAny(stationId){return MAP.adj[stationId];}
 const RING_VAR={taxi:'var(--taxi)',bus:'var(--bus)',underground:'var(--tube)'};
 function stationKind(id){ return ringKind(edges.filter(e=>e.a===id||e.b===id).map(e=>e.type)); }
 function stationRingColor(id){ return RING_VAR[stationKind(id)]; }
@@ -216,6 +216,7 @@ function denySeat(id){ if(NET.host) NET.host.deny(id); }
 
 // Close whatever is open. Detach first so late callbacks from the old room are ignored.
 function stopNet(){
+  keepScreenOn(false);
   const {host,client,transport}=NET;
   NET={host:null,client:null,transport:null};
   if(host) host.close();
@@ -252,7 +253,7 @@ async function createRoom(){
 }
 function hostUpdate(host,snap){
   if(NET.host!==host) return;
-  ME.online=true; ME.isHost=true; ME.roomCode=snap.code;
+  ME.online=true; ME.isHost=true; ME.roomCode=snap.code; keepScreenOn(true);
   showSeatRequests(snap.requests);
   setConn('ok','Hosting room '+snap.code);
   if(snap.phase==='playing') onOnlineState(snap.view,snap.online);
@@ -287,7 +288,7 @@ function clientStatus(client,st,detail){
   const msg=document.getElementById('jrMsg');
   if(st==='connecting'){ msg.textContent='Connecting…'; setConn('warn','Connecting'); }
   else if(st==='pending'){ msg.textContent='The host has to approve you taking this seat. Waiting for their answer…'; setConn('warn','Waiting for host'); }
-  else if(st==='connected'){ msg.textContent=''; setBanner(''); setConn('ok','Connected, room '+ME.roomCode); }
+  else if(st==='connected'){ msg.textContent=''; setBanner(''); setConn('ok','Connected, room '+ME.roomCode); keepScreenOn(true); }
   else if(st==='reconnecting'){ setBanner('Connection lost. Reconnecting…'); setConn('warn','Reconnecting'); }
   else if(st==='host-left'){ netFail('The host left or lost their connection, so this game cannot continue.','joinRoomScreen','jrMsg'); setConn('bad','Host left'); }
   else if(st==='closed'){ netFail('The host closed the room.','joinRoomScreen','jrMsg'); setConn('bad','Room closed'); }

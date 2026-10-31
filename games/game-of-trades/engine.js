@@ -632,6 +632,7 @@ function validate(seat,a,ds,p){
   const S=state, pt=!!(S.pendingTrade&&S.pendingTrade.status==='pending');
   if(S.phase==='gameover') return false;
   if(a==='respondTrade') return pt && S.pendingTrade.toIdx===seat;
+  if(a==='cancelTrade') return pt && S.pendingTrade.fromIdx===seat;
   if(pt) return false;
   if(a==='doConfirmDiscard') return S.uiMode==='discard' && S.turn.discardQueue[0]===seat;
   if(S.uiMode==='discard' || seat!==S.currentPlayerIdx) return false;
@@ -674,6 +675,7 @@ function applyGameAction(a, ds, p){
       if(Number.isInteger(t) && t>=0 && t<state.numPlayers && t!==state.currentPlayerIdx) proposeTrade(cleanBag(p.give), cleanBag(p.get), t);
       state.uiMode='idle'; break; }
     case 'respondTrade': respondTrade(ds.accept==='1'); break;
+    case 'cancelTrade': log(`${state.players[state.pendingTrade.fromIdx].name} withdrew their trade offer.`); state.pendingTrade=null; break;
     case 'confirmBankTrade': {
       if(!isRes(p.give)||!isRes(p.get)) break;
       const qty=Math.max(1,Math.min(4,Math.floor(+p.qty)||1));

@@ -9,7 +9,7 @@ import * as Rules from './engine.js';
 export const COLOR_CHOICES = ['#c0392b', '#2c5f8a', '#ede7d9', '#d98a2b', '#3f6b3f', '#8e44ad', '#e8d24a', '#2f2f2f'];
 export const HIDE_MODES = ['off', 'first', 'all'];
 
-export const GAME_ACTIONS = new Set(['rollDice', 'startBuildRoad', 'startBuildSettlement', 'startBuildCity', 'cancelBuild', 'clickVertexSettlement', 'clickVertexCity', 'clickEdge', 'clickTile', 'buyDevCard', 'playDevCard', 'openTradeChooser', 'setUiMode', 'sendTrade', 'respondTrade', 'confirmBankTrade', 'doConfirmDiscard', 'chooseVictim', 'resolveMonopolyAction', 'confirmYoPAction', 'endTurn']);
+export const GAME_ACTIONS = new Set(['rollDice', 'startBuildRoad', 'startBuildSettlement', 'startBuildCity', 'cancelBuild', 'clickVertexSettlement', 'clickVertexCity', 'clickEdge', 'clickTile', 'buyDevCard', 'playDevCard', 'openTradeChooser', 'setUiMode', 'sendTrade', 'respondTrade', 'cancelTrade', 'confirmBankTrade', 'doConfirmDiscard', 'chooseVictim', 'resolveMonopolyAction', 'confirmYoPAction', 'endTurn']);
 
 const isPlain = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 

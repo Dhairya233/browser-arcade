@@ -25,9 +25,12 @@ export const LIMITS = {
   reconnectAttempts: 12,
 };
 
-// Strip characters that could be read as HTML, trim, and cap the length.
+// Names are shown to other players, so strip anything that could be read as HTML and anything that
+// cannot be seen: control characters, zero-width characters and text-direction overrides, which
+// would let one player look blank or look like another. Runs of spaces become one, and the length is capped.
+const UNSEEN = /[\u0000-\u001f\u007f-\u009f\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180e\u200b-\u200f\u2028-\u202e\u2060-\u206f\u3164\ufe00-\ufe0f\ufeff\uffa0\ufff9-\ufffb]/g;
 export function cleanName(n) {
-  return String(n == null ? '' : n).replace(/[<>&"'`]/g, '').trim().slice(0, 16);
+  return String(n == null ? '' : n).replace(/[<>&"'`]/g, '').replace(UNSEEN, '').replace(/\s+/g, ' ').trim().slice(0, 16);
 }
 
 export function parseMessage(raw) {

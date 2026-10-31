@@ -31,7 +31,6 @@ const P = {
   hidden: '<path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5zM10 8a2 2 0 100 4 2 2 0 000-4zM3 17L17 3"/>',
   robber: '<ellipse cx="10" cy="12" rx="5" ry="6"/><circle cx="10" cy="5" r="3"/>',
 };
-export const RES_NAMES = ['wood', 'brick', 'ore', 'wheat', 'sheep'];
 export const icon = (name, label) =>
   `<svg class="ic" viewBox="0 0 20 20" ${label ? `role="img" aria-label="${label}"` : 'aria-hidden="true"'}>${P[name] || ''}</svg>`;
 // The same glyph placed inside a board SVG, centred on (x, y), `size` units wide.
