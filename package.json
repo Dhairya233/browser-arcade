@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test"
-  }
+    "start": "node tools/serve.mjs",
+    "test": "node --test",
+    "balance": "node tools/balance-sim.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "license": "MIT"
 }
