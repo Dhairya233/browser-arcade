@@ -280,7 +280,7 @@ function joinRoom(){
     onState:m=>{ if(NET.client!==client) return; ME.online=true; ME.isHost=false; ME.roomCode=code; onOnlineState(m.view,m.online); },
     onNack:()=>{ if(NET.client===client) moveRejected(); }
   });
-  NET.client=client;
+  NET.client=client; ME.roomCode=code;
   client.connect();
 }
 function clientStatus(client,st,detail){

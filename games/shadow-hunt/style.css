@@ -54,7 +54,7 @@ input,select{font:400 var(--t-md)/1.3 var(--f-body);min-height:var(--hit);paddin
 .turnbanner .stamp{color:inherit}
 .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--s3);flex-wrap:wrap;gap:var(--s2)}
 .tools{display:flex;gap:var(--s2);flex-wrap:wrap}
-.badge{font:700 var(--t-sm)/1 var(--f-title);letter-spacing:.1em;text-transform:uppercase;padding:var(--s2) var(--s3);border:var(--stroke) solid var(--night-ink)}
+.badge{display:block;width:max-content;margin:0 0 var(--s2);font:700 var(--t-sm)/1 var(--f-title);letter-spacing:.1em;text-transform:uppercase;padding:var(--s2) var(--s3);border:var(--stroke) solid var(--night-ink)}
 .reveal{background:var(--tube);color:#fff;border-color:var(--tube)}
 .gameWrap{display:flex;gap:var(--s4);flex-wrap:wrap;align-items:flex-start}
 #mapBox{flex:1 1 640px;background:var(--chart);border:var(--stroke) solid var(--night-mute);min-width:0;height:min(78vh,720px);overflow:auto;position:relative;touch-action:pan-x pan-y}
