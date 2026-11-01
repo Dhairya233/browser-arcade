@@ -2,3 +2,7 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.log
+
+# demo media build cache (raw clips, voice lines, intermediate renders)
+.media-cache/
+__pycache__/

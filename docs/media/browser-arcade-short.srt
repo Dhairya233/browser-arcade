@@ -1,0 +1,36 @@
+1
+00:00:00,600 --> 00:00:01,763
+Two board games.
+
+2
+00:00:01,783 --> 00:00:03,390
+Open a link, and play.
+
+3
+00:00:10,200 --> 00:00:10,000
+Shadow Hunt.
+
+4
+00:00:11,020 --> 00:00:14,073
+One player is the Phantom, hidden on the map.
+
+5
+00:00:14,093 --> 00:00:15,439
+Everyone else hunts.
+
+6
+00:00:17,667 --> 00:00:18,792
+Game of Trades.
+
+7
+00:00:18,812 --> 00:00:22,837
+Build roads, trade resources, and race to the target.
+
+8
+00:00:25,067 --> 00:00:26,729
+No account and no install.
+
+9
+00:00:26,749 --> 00:00:29,122
+Find the link and the code on screen.
+
