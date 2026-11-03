@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shadow Hunt</title>
+<link rel="stylesheet" href="../../shared/ui/tokens.css">
+<link rel="stylesheet" href="../../shared/ui/arcade.css">
+<link rel="stylesheet" href="style.css">
+<script src="../../vendor/peerjs.min.js"></script>
+</head>
+<body class="on-night">
+<a class="skip" href="#main">Skip to the game</a>
+
+<header class="titleblock">
+  <a class="home" href="../../">Browser Arcade</a>
+  <span id="sheetName">Shadow Hunt</span>
+  <span id="connState" class="conn" role="status" hidden></span>
+</header>
+
+<noscript><p style="font:16px/1.5 sans-serif;max-width:36rem;margin:2rem auto;padding:0 1rem">This game needs JavaScript. Turn it on in your browser settings and reload the page.</p></noscript>
+<main id="main">
+
+<div id="titleScreen" class="screen active">
+  <h1 class="title">Shadow Hunt</h1>
+  <p class="lede">The Phantom is loose in the city. Detectives, work together and track him down before he vanishes for good.</p>
+  <div class="menu">
+    <button class="btn solid" onclick="show('setupLocal')"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3l11 7-11 7z"/></svg> Play on this device</button>
+    <button class="btn" onclick="show('setupOnline')"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 11.5l3-3M7 9L5 11a3 3 0 004.2 4.2L11 13.5M13 11l2-2A3 3 0 0010.800 4.800L9 6.500"/></svg> Play online with friends</button>
+    <button class="btn" onclick="openHowTo()"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M7.800 8a2.300 2.300 0 114 1.500c-.8.7-1.800 1.100-1.800 2.500M10 14.500v.5"/></svg> How to play</button>
+  </div>
+  <p class="fine">3 to 6 players. Pass-and-play shares one screen. Online rooms are peer-to-peer, so the host keeps their tab open.</p>
+  <p class="fine">An independent fan-made game, not affiliated with or endorsed by the makers of any commercial board game. Made by Dhairya Shah.</p>
+</div>
+
+<div id="setupLocal" class="screen">
+<section class="card">
+<h2>Same-device game</h2>
+<p class="hint">Everyone shares this screen. Between turns you will be asked to pass the device to the next player, so The Phantom's moves stay secret.</p>
+<label for="localCount">Number of players (1 Phantom and the rest detectives)</label>
+<select id="localCount" onchange="buildLocalRoster()">
+<option value="3">3 players</option><option value="4">4 players</option><option value="5" selected>5 players</option><option value="6">6 players</option>
+</select>
+<label for="localMaxRounds">Rounds before The Phantom wins</label>
+<select id="localMaxRounds">
+<option value="12">12 rounds (short game)</option>
+<option value="18">18 rounds (medium game)</option>
+<option value="24" selected>24 rounds (standard)</option>
+<option value="30">30 rounds (long game)</option>
+</select>
+<div id="localRoster"></div>
+<div class="row end">
+<button class="btn" onclick="show('titleScreen')"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10H4M9 5l-5 5 5 5"/></svg> Back</button>
+<button class="btn solid" onclick="startLocalGame()">Start game</button>
+</div>
+</section>
+</div>
+
+<div id="setupOnline" class="screen">
+<section class="card">
+<h2>Play online</h2>
+<p class="hint">Create a room and share its link or code with friends, or join with a code you were given. Everyone needs an internet connection. The host's browser runs the game, so the host has to keep their tab open.</p>
+<div class="row">
+<button class="btn solid grow" onclick="show('createRoomScreen')">Create a room</button>
+<button class="btn grow" onclick="show('joinRoomScreen')">Join a room</button>
+</div>
+<div class="row"><button class="btn" onclick="show('titleScreen')"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10H4M9 5l-5 5 5 5"/></svg> Back</button></div>
+</section>
+</div>
+
+<div id="createRoomScreen" class="screen">
+<section class="card">
+<h2>Create a room</h2>
+<label for="crName">Your name</label><input id="crName" placeholder="For example, Dhairya" maxlength="20" autocomplete="nickname">
+<div class="row end">
+<button class="btn" onclick="show('setupOnline')"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10H4M9 5l-5 5 5 5"/></svg> Back</button>
+<button class="btn solid" onclick="createRoom()">Create and enter lobby</button>
+</div>
+<p id="crMsg" class="msg" role="alert"></p>
+</section>
+</div>
+
+<div id="joinRoomScreen" class="screen">
+<section class="card">
+<h2>Join a room</h2>
+<label for="jrName">Your name</label><input id="jrName" placeholder="For example, Alex" maxlength="20" autocomplete="nickname">
+<label for="jrCode">Room code</label><input id="jrCode" class="codeinput mono" placeholder="5 characters" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false">
+<div class="row end">
+<button class="btn" onclick="show('setupOnline')"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10H4M9 5l-5 5 5 5"/></svg> Back</button>
+<button class="btn solid" onclick="joinRoom()">Join lobby</button>
+</div>
+<p id="jrMsg" class="msg" role="alert"></p>
+</section>
+</div>
+
+<div id="lobbyScreen" class="screen">
+<section class="card">
+<h2>Lobby</h2>
+<div class="codebox">
+  <span class="label">Room code</span>
+  <span id="lobbyCode" class="mono roomcode"></span>
+  <div class="row">
+    <button class="btn" id="copyCodeBtn" onclick="copyRoom('code')"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="10" height="10"/><path d="M13 7V3H3v10h4"/></svg> Copy code</button>
+    <button class="btn" id="copyLinkBtn" onclick="copyRoom('link')"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 11.5l3-3M7 9L5 11a3 3 0 004.2 4.2L11 13.5M13 11l2-2A3 3 0 0010.800 4.800L9 6.500"/></svg> Copy invite link</button>
+  </div>
+</div>
+<p id="lobbyHint" class="hint"></p>
+<ul id="lobbyPlayers" class="seats" aria-label="Seats in this room"></ul>
+<div id="lobbyHostSettings" hidden>
+<label for="lobbyMaxRounds">Rounds before The Phantom wins (host sets this)</label>
+<select id="lobbyMaxRounds" onchange="setRounds()">
+<option value="12">12 rounds (short game)</option>
+<option value="18">18 rounds (medium game)</option>
+<option value="24" selected>24 rounds (standard)</option>
+<option value="30">30 rounds (long game)</option>
+</select>
+</div>
+<div class="row end">
+<button class="btn" onclick="leaveRoom()">Leave room</button>
+<button id="lobbyStartBtn" class="btn solid" onclick="hostStartGame()">Start game</button>
+</div>
+<p id="lobbyMsg" class="msg" role="alert"></p>
+</section>
+</div>
+
+<div id="gameScreen" class="screen">
+<div id="turnBanner" class="turnbanner" role="status" aria-live="polite"></div>
+<div class="topbar">
+<span class="badge" id="roundBadge">Round 1</span>
+<span class="tools">
+<button class="btn small" onclick="toggleFullscreen()" id="fsBtn"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5"/></svg><span>Full screen</span></button>
+<button class="btn small" onclick="openHowTo()" aria-label="How to play"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M7.800 8a2.300 2.300 0 114 1.500c-.8.7-1.800 1.100-1.800 2.500M10 14.500v.5"/></svg><span>Rules</span></button>
+<button class="btn small" onclick="quitGame()"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4l12 12M16 4L4 16"/></svg><span>Quit</span></button>
+</span>
+</div>
+<div class="gameWrap">
+<div id="mapBox" role="group" tabindex="0" aria-label="Map. Drag to pan, use the buttons or pinch to zoom.">
+<div class="mapTopBar">
+<div class="zoomCtl">
+<button class="btn small sq" onclick="zoomMap(1.25)" aria-label="Zoom in"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg></button>
+<button class="btn small sq" onclick="zoomMap(0.8)" aria-label="Zoom out"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12"/></svg></button>
+<button class="btn small sq" onclick="zoomMap(0,true)" aria-label="Fit the whole map"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4"/></svg></button>
+</div>
+<div class="legendMini" aria-label="Transport key">
+<span><i class="taxi"></i><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 13l1.6-5h10.8L17 13v3H3zM3 13h14M6 16v2M14 16v2M8 5.5h4"/></svg>Taxi</span>
+<span><i class="bus"></i><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3.5" width="14" height="12"/><path d="M3 10h14M6 15.5V18M14 15.5V18"/><path d="M6.5 6.5h7"/></svg>Bus</span>
+<span><i class="underground"></i><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M1.5 10h17"/></svg>Underground</span>
+</div>
+</div>
+<div id="mapInner"></div>
+</div>
+<div class="sidebar">
+<section class="panel" id="actionPanel"><h3>Your move</h3><div id="actionBody"></div></section>
+<section class="panel"><h3>The Phantom</h3><div id="phantomPanel"></div></section>
+<section class="panel"><h3>Detectives</h3><div id="detPanel"></div></section>
+<section class="panel"><h3>Log</h3><div id="log" role="group" tabindex="0" aria-label="Game log"></div></section>
+</div>
+</div>
+</div>
+
+</main>
+
+<div id="netBanner" class="netBanner" role="status"></div>
+<div id="seatRequests" class="seatRequests"></div>
+
+<div id="modalBg" class="modalBg" role="dialog" aria-modal="true" aria-label="How to play"><div class="modal" id="modalContent"></div></div>
+<div id="gateBg" class="gateBg" role="dialog" aria-modal="true" aria-label="Pass the device"><div class="gateBox" id="gateBox"></div></div>
+
+<script type="module" src="main.js"></script>
+</body></html>

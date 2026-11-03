@@ -1,0 +1,5 @@
+playwright
+piper-tts
+numpy
+fonttools
+brotli

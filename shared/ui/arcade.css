@@ -1,0 +1,19 @@
+/* Shared components: buttons, focus, status block. Needs tokens.css. */
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+:where(button,a,input,select,summary,[tabindex]):focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+.on-night :where(button,a,input,select,summary,[tabindex]):focus-visible{outline-color:var(--amber)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);min-height:var(--hit);padding:var(--s2) var(--s5);
+  font:600 var(--t-md)/1.2 var(--f-body);text-decoration:none;cursor:pointer;border-radius:var(--r);
+  border:var(--stroke) solid currentColor;background:transparent;color:inherit}
+.btn:hover{background:rgba(127,127,127,.14)}
+.btn.solid{background:var(--slate);color:var(--vellum);border-color:var(--slate)}
+.btn.solid:hover{background:#2c3d48}
+.on-night .btn.solid{background:var(--amber);color:var(--night);border-color:var(--amber)}
+.on-night .btn.solid:hover{background:#f6bd63}
+.btn svg{width:20px;height:20px;flex:none;stroke:currentColor;fill:none;stroke-width:var(--stroke);stroke-linecap:square;stroke-linejoin:miter}
+.stamp{display:inline-block;font:700 var(--t-sm)/1 var(--f-title);letter-spacing:.12em;text-transform:uppercase;
+  padding:var(--s1) var(--s2);border:var(--stroke) solid currentColor;border-radius:var(--r)}
+.mono{font-family:var(--f-mono);font-weight:500}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

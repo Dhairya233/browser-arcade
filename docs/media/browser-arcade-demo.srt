@@ -1,0 +1,84 @@
+1
+00:00:00,600 --> 00:00:01,783
+Two board games.
+
+2
+00:00:01,803 --> 00:00:03,436
+Open a link, and play.
+
+3
+00:00:05,800 --> 00:00:07,919
+Shadow Hunt and Game of Trades.
+
+4
+00:00:07,939 --> 00:00:09,713
+Both run in a browser tab.
+
+5
+00:00:09,733 --> 00:00:13,094
+Pass one screen around the table, or play online.
+
+6
+00:00:15,300 --> 00:00:19,636
+In Shadow Hunt, one player is the Phantom, hidden on a city map.
+
+7
+00:00:19,656 --> 00:00:21,609
+Everyone else hunts together.
+
+8
+00:00:21,629 --> 00:00:24,672
+On one screen, a pass screen hides each turn.
+
+9
+00:00:24,992 --> 00:00:29,024
+On set rounds, the Phantom is shown on the map for a moment.
+
+10
+00:00:31,267 --> 00:00:35,677
+Game of Trades is a build and trade game for three to eight players.
+
+11
+00:00:35,697 --> 00:00:39,130
+Place settlements and roads, then roll for resources.
+
+12
+00:00:41,333 --> 00:00:45,693
+Online, the host opens a room and shares a five character code.
+
+13
+00:00:45,713 --> 00:00:47,431
+Friends join from a link.
+
+14
+00:00:49,667 --> 00:00:52,960
+Each player is sent only what their seat may see.
+
+15
+00:00:52,980 --> 00:00:56,610
+On the left, the Phantom's own screen shows his piece.
+
+16
+00:00:56,630 --> 00:00:59,585
+On the right, a detective's screen does not.
+
+17
+00:01:01,800 --> 00:01:03,242
+To play, open the link.
+
+18
+00:01:03,262 --> 00:01:05,467
+There is no account and no install.
+
+19
+00:01:05,487 --> 00:01:09,535
+The host's browser runs the game, so host with people you trust.
+
+20
+00:01:11,767 --> 00:01:14,151
+The live link and the code are on screen.
+
+21
+00:01:14,171 --> 00:01:15,323
+Thanks for watching.
+

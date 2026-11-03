@@ -1,0 +1,22 @@
+/* Survey Office design tokens, shared by the arcade and both games. */
+@font-face{font-family:"Plex Condensed";font-weight:500;font-display:swap;src:url(fonts/ibm-plex-sans-condensed-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Plex Condensed";font-weight:700;font-display:swap;src:url(fonts/ibm-plex-sans-condensed-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Plex Sans";font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Plex Sans";font-weight:600;font-display:swap;src:url(fonts/ibm-plex-sans-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Plex Mono";font-weight:500;font-display:swap;src:url(fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
+
+:root{
+  /* palette */
+  --vellum:#EEF0E8; --vellum-2:#DCE3D2; --slate:#1E2B33; --slate-2:#4A5A63;
+  --orange:#B8441A; --green:#2F6B52;
+  --night:#14202B; --night-2:#1C2D3B; --night-ink:#E8EDF0; --night-mute:#8FB3C7; --amber:#F2A93B;
+  /* type: scale 12 14 16 18 24 32 48 */
+  --f-title:"Plex Condensed","Arial Narrow",sans-serif;
+  --f-body:"Plex Sans",system-ui,sans-serif;
+  --f-mono:"Plex Mono",ui-monospace,monospace;
+  --t-xs:.75rem; --t-sm:.875rem; --t-md:1rem; --t-lg:1.125rem; --t-xl:1.5rem; --t-2xl:2rem; --t-3xl:3rem;
+  /* spacing scale */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:72px;
+  /* one corner radius, one stroke */
+  --r:2px; --stroke:2px; --hit:44px;
+}

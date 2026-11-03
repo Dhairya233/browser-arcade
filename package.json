@@ -1,0 +1,12 @@
+{
+  "name": "browser-arcade",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node tools/serve.mjs",
+    "test": "node --test",
+    "balance": "node tools/balance-sim.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "license": "MIT"
+}

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Browser Arcade</title>
+<meta name="description" content="Two board games for friends that run in the browser. Share one screen or host an online room.">
+<link rel="stylesheet" href="shared/ui/tokens.css">
+<link rel="stylesheet" href="shared/ui/arcade.css">
+<link rel="stylesheet" href="landing.css">
+</head>
+<body>
+<noscript><p style="max-width:36rem;margin:2rem auto;padding:0 1rem">The landing page works without JavaScript, but both games need it.</p></noscript>
+<div class="wrap">
+<div class="titleblock">
+  <span>Browser Arcade</span>
+  <span>Sheet 1 of 2: Games</span>
+  <span class="scale" aria-hidden="true"><i></i>Drawn by Dhairya Shah</span>
+</div>
+
+<main id="main">
+<h1>Two games.<br>Pick a table.</h1>
+<p class="pitch">Board games for friends that run in a browser tab. Pass one screen around the room, or open an online room and play from separate devices.</p>
+
+<div class="sheets">
+<section class="sheet night on-night" aria-labelledby="sh">
+  <span class="stamp" style="align-self:flex-start;color:var(--amber)">Hidden movement</span>
+  <h2 id="sh">Shadow Hunt</h2>
+  <svg class="map" viewBox="0 0 320 120" role="img" aria-label="A night map: detectives close in on a ringed stop along three kinds of route">
+    <path d="M12 96 L84 40 L176 62 L252 22" fill="none" stroke="#8FB3C7" stroke-width="2"/>
+    <path d="M84 40 L120 104 L212 96 L252 22" fill="none" stroke="#8FB3C7" stroke-width="2" stroke-dasharray="6 5"/>
+    <path d="M176 62 L212 96" fill="none" stroke="#F2A93B" stroke-width="2"/>
+    <circle cx="12" cy="96" r="6" fill="#E8EDF0"/>
+    <circle cx="84" cy="40" r="9" fill="#14202B" stroke="#E8EDF0" stroke-width="2"/><circle cx="84" cy="40" r="4" fill="none" stroke="#F2A93B" stroke-width="2"/>
+    <circle cx="176" cy="62" r="9" fill="#14202B" stroke="#E8EDF0" stroke-width="2"/>
+    <circle cx="212" cy="96" r="9" fill="#14202B" stroke="#E8EDF0" stroke-width="2"/>
+    <circle cx="120" cy="104" r="6" fill="#E8EDF0"/>
+    <path d="M252 8 l14 26 h-28z" fill="#14202B" stroke="#E8EDF0" stroke-width="2"/>
+  </svg>
+  <p>One player is The Phantom, loose in the city and hidden from view. Everyone else hunts together and tries to corner him before the rounds run out.</p>
+  <dl class="facts">
+    <dt>Players</dt><dd>3 to 6</dd>
+    <dt>Pass and play</dt><dd>One shared screen. Privacy gates hide The Phantom's moves between turns.</dd>
+    <dt>Online</dt><dd>Room code or link. Each player sees only what their seat may see.</dd>
+  </dl>
+  <div class="actions">
+    <a class="btn solid" href="games/shadow-hunt/#local"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3 L16 10 L5 17 Z"/></svg>Pass and play</a>
+    <a class="btn" href="games/shadow-hunt/#online"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 11.5l3-3M7 9L5 11a3 3 0 004.2 4.2L11 13.5M13 11l2-2A3 3 0 0010.800 4.800L9 6.500"/></svg>Online room</a>
+  </div>
+</section>
+
+<section class="sheet day" aria-labelledby="gt">
+  <span class="stamp" style="align-self:flex-start;color:var(--orange)">Build and trade</span>
+  <h2 id="gt">Game of Trades</h2>
+  <svg class="map" viewBox="0 0 320 120" role="img" aria-label="Survey sheet: three hexagonal land tiles, a numbered settlement and a road">
+    <g fill="#DCE3D2" stroke="#1E2B33" stroke-width="2">
+      <polygon points="80,10 112,28 112,64 80,82 48,64 48,28"/>
+      <polygon points="136,42 168,60 168,96 136,114 104,96 104,60"/>
+      <polygon points="192,10 224,28 224,64 192,82 160,64 160,28"/>
+    </g>
+    <path d="M112 64 L136 42" stroke="#B8441A" stroke-width="6"/>
+    <rect x="102" y="54" width="20" height="20" fill="#B8441A" stroke="#1E2B33" stroke-width="2"/>
+    <text x="112" y="69" text-anchor="middle" font-family="Plex Mono,monospace" font-size="13" fill="#EEF0E8">1</text>
+    <path d="M80 10 V4 M192 10 V4" stroke="#1E2B33" stroke-width="2"/>
+  </svg>
+  <p>Settle an island, collect resources from the dice, build roads and cities, and trade with the table. First to the victory target wins.</p>
+  <dl class="facts">
+    <dt>Players</dt><dd>3 to 8</dd>
+    <dt>Pass and play</dt><dd>One shared screen. Optional password gates hide each hand.</dd>
+    <dt>Online</dt><dd>Room code or link. Each player is sent only their own hand.</dd>
+  </dl>
+  <div class="actions">
+    <a class="btn solid" href="games/game-of-trades/#local"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3 L16 10 L5 17 Z"/></svg>Pass and play</a>
+    <a class="btn" href="games/game-of-trades/#online"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 11.5l3-3M7 9L5 11a3 3 0 004.2 4.2L11 13.5M13 11l2-2A3 3 0 0010.800 4.800L9 6.500"/></svg>Online room</a>
+  </div>
+</section>
+</div>
+
+<section class="how" aria-labelledby="p2p">
+  <h2 id="p2p">About online rooms</h2>
+  <div>
+    <p>Online rooms are peer-to-peer. The host's browser runs the game and everyone else connects to it, so the host has to keep their tab open and their screen awake. If the host closes it, the game ends. The host's browser holds the whole game, so host with people you trust.</p>
+    <p>Some school, work and mobile networks block peer-to-peer connections. If a friend cannot join, try another network or a different browser, and check that the room code is typed correctly.</p>
+    <p>To invite someone, copy the room link from the lobby. Opening it takes them straight to the join screen.</p>
+  </div>
+</section>
+</main>
+
+<footer>
+  <p>Independent fan-made games, not affiliated with or endorsed by the makers of any commercial board game.</p>
+  <p>Made by Dhairya Shah. <a href="THIRD_PARTY_NOTICES.md">Third-party notices</a>.</p>
+</footer>
+</div>
+</body>
+</html>
